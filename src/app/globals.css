@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f8f7;
+  --foreground: #0f172a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ---------- Thermal POS receipt (58mm / 80mm) ---------- */
+
+.receipt {
+  width: 80mm;
+  max-width: 80mm;
+  margin: 0 auto;
+  background: #fff;
+  color: #000;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 10mm 8mm;
+}
+
+.receipt .center {
+  text-align: center;
+}
+
+.receipt .muted {
+  color: #444;
+  font-size: 11px;
+}
+
+.receipt h1 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.receipt hr.solid,
+.receipt .sep {
+  border: 0;
+  border-top: 1px dashed #000;
+  margin: 6px 0;
+}
+
+.receipt .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.receipt .total {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.receipt .thankyou {
+  text-align: center;
+  margin-top: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .receipt {
+    padding: 0;
+    margin: 0;
+    width: 80mm;
+    /* 58mm printers: use -- Keep 80mm default width, printer handles scaling */
+  }
+}
