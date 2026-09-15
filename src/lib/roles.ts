@@ -25,7 +25,7 @@ export function homeForRole(role: string | null | undefined): string {
     case "pharmacy":
       return "/pharmacy";
     case "cashier":
-      return "/cashier";
+      return "/receptionist";
     case "admin":
       return "/admin";
     default:

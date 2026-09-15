@@ -1,15 +1,37 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f8f7;
+  --background: #f6f9fb;
   --foreground: #0f172a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-noto);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-figtree);
+}
+
+@theme {
+  /* Homocare Gracious Hospital brand - clinical teal scale */
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+  /* Vivid cyan accent layered with the clinical teal brand */
+  --color-accent-50: #ecfeff;
+  --color-accent-100: #cffafe;
+  --color-accent-400: #22d3ee;
+  --color-accent-500: #06b6d4;
+  --color-accent-600: #0891b2;
+  --color-accent-700: #0e7490;
 }
 
 html {
@@ -17,9 +39,161 @@ html {
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  background:
+    radial-gradient(55rem 32rem at 112% -8%, rgba(45, 212, 191, 0.07), transparent 60%),
+    radial-gradient(48rem 26rem at -8% 108%, rgba(8, 145, 178, 0.08), transparent 58%),
+    var(--background);
+  background-attachment: fixed;
+}
+
+/* ---------- Modern component classes ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.35);
+}
+
+.btn-primary {
+  padding: 0.5rem 1.25rem;
+  color: #fff;
+  background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
+  box-shadow:
+    0 1px 2px rgba(15, 118, 110, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #14b8a6 0%, #0d9488 100%);
+  box-shadow:
+    0 8px 20px -8px rgba(13, 148, 136, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-accent {
+  padding: 0.5rem 1.25rem;
+  color: #fff;
+  background: linear-gradient(180deg, #06b6d4 0%, #0891b2 100%);
+  box-shadow:
+    0 1px 2px rgba(8, 145, 178, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.btn-accent:hover:not(:disabled) {
+  background: linear-gradient(180deg, #22d3ee 0%, #06b6d4 100%);
+  box-shadow:
+    0 8px 20px -8px rgba(8, 145, 178, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  padding: 0.5rem 1.1rem;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.btn-danger {
+  padding: 0.5rem 1.1rem;
+  color: #fff;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+}
+
+.btn-danger:hover:not(:disabled) {
+  box-shadow: 0 8px 20px -8px rgba(220, 38, 38, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  border-radius: 0.5rem;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* Modern, light data tables */
+.table-modern {
+  width: 100%;
+  text-align: left;
+  font-size: 0.875rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-modern thead th {
+  padding: 0.625rem 0.75rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+  background: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.table-modern tbody td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid #eef2f6;
+  color: #334155;
+}
+
+.table-modern tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-modern tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.table-modern tbody tr:hover {
+  background: #eefaf8;
+}
+
+.table-modern tfoot td {
+  border-top: 1px solid #e2e8f0;
 }
 
 /* ---------- Thermal POS receipt (58mm / 80mm) ---------- */
@@ -36,11 +210,13 @@ body {
   padding: 10mm 8mm;
 }
 
-.receipt .center {
+.receipt .center,
+.receipt .receipt-center {
   text-align: center;
 }
 
-.receipt .muted {
+.receipt .muted,
+.receipt .receipt-tiny {
   color: #444;
   font-size: 11px;
 }
@@ -52,13 +228,15 @@ body {
 }
 
 .receipt hr.solid,
-.receipt .sep {
+.receipt .sep,
+.receipt .receipt-divider {
   border: 0;
   border-top: 1px dashed #000;
   margin: 6px 0;
 }
 
-.receipt .row {
+.receipt .row,
+.receipt .receipt-row {
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -95,5 +273,132 @@ body {
     margin: 0;
     width: 80mm;
     /* 58mm printers: use -- Keep 80mm default width, printer handles scaling */
+  }
+}
+
+/* ---------- App header ---------- */
+
+.app-header {
+  max-width: 80rem;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.app-header .nav-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.app-header .nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.app-header .nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-width: max-content;
+}
+
+.app-header .user-block {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* ---------- Modals ---------- */
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.modal-backdrop {
+  animation: modal-fade-in 0.15s ease-out;
+}
+
+.modal-panel {
+  animation: modal-pop-in 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal-panel {
+    animation: none;
+  }
+}
+
+/* ---------- Page reveal (staggered fade-up) ---------- */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal {
+  animation: fade-up 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.reveal-2 {
+  animation-delay: 0.08s;
+}
+
+.reveal-3 {
+  animation-delay: 0.16s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-2,
+  .reveal-3 {
+    animation: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-header {
+    grid-template-columns: auto auto;
+    gap: 0.5rem 1rem;
+  }
+  .app-header .nav-scroll {
+    grid-column: 1 / -1;
+    order: 5;
+    margin: 0 -1rem;
+    width: calc(100% + 2rem);
+  }
+  .app-header .nav-inner {
+    justify-content: flex-start;
+    padding: 0 1rem;
+  }
+  .app-header .user-block {
+    justify-content: flex-end;
   }
 }

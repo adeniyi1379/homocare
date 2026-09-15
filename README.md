@@ -11,7 +11,7 @@ Security). Deploys to Vercel.
 
 | Role         | Can do                                                                                                        |
 | ------------ | ------------------------------------------------------------------------------------------------------------- |
-| receptionist | Register patients (auto `HC-YYYY-XXXX` code), open encounters, cancel own encounters                          |
+| receptionist | Register patients (staff enters the patient ID / file number), open encounters                                                                 |
 | nurse        | View active encounters, log vitals, administer injections / ward dosages (no costs shown)                     |
 | pharmacy     | Manage inventory, restock/adjust stock, flag low/out-of-stock, dispense to encounters, internal cost log      |
 | cashier      | Set the manual treatment fee, collect payments (auto `REC-YYYYMMDD-XXXX` receipt), view ledger, thermal receipt |

@@ -15,13 +15,16 @@ export async function registerPatient(
     data: { user },
   } = await supabase.auth.getUser();
 
+  const patient_code = String(formData.get("patient_code") ?? "").trim();
   const full_name = String(formData.get("full_name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   const gender = String(formData.get("gender") ?? "");
 
+  if (!patient_code) return { error: "Patient ID / file number is required." };
   if (!full_name) return { error: "Patient name is required." };
 
   const { error } = await supabase.from("patients").insert({
+    patient_code,
     full_name,
     phone: phone || null,
     gender: gender || null,
@@ -60,4 +63,27 @@ export async function openEncounter(
   if (error) return { error: error.message };
   revalidatePath("/receptionist", "layout");
   redirect("/receptionist");
+}
+
+export async function updateEncounter(
+  _prevState: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const treatment_id = String(formData.get("treatment_id") ?? "");
+  const encounter_type = String(formData.get("encounter_type") ?? "");
+
+  if (!treatment_id || !["one_time", "admission", "recurring"].includes(encounter_type)) {
+    return { error: "Select a valid encounter type." };
+  }
+
+  const { error } = await supabase
+    .from("treatments")
+    .update({ encounter_type })
+    .eq("id", treatment_id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/receptionist", "layout");
+  return undefined;
 }

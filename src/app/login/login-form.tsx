@@ -25,7 +25,7 @@ export function LoginForm() {
           autoComplete="email"
           required
           className={inputClass}
-          placeholder="you@homecareclinic.ng"
+          placeholder="Enter Your Email"
         />
       </label>
 
@@ -44,7 +44,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
+        className="btn btn-primary btn-block"
       >
         {pending ? "Signing in..." : "Sign in"}
       </button>

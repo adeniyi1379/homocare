@@ -66,3 +66,17 @@ export async function recordVitals(
   revalidatePath("/nurse", "layout");
   return undefined;
 }
+
+export async function confirmAdministration(dispenseId: string): Promise<{ error?: string }> {
+  const supabase = await createClient();
+
+  if (!dispenseId) return { error: "Missing dispense record." };
+
+  const { error } = await supabase.rpc("confirm_dispense_administration", {
+    p_dispense_id: dispenseId,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/nurse", "layout");
+  return {};
+}

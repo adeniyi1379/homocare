@@ -14,7 +14,7 @@ export function FormError({ message }: { message?: string }) {
 export function SubmitButton({
   children,
   pendingLabel,
-  className = "rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800",
+  className = "btn btn-primary",
 }: {
   children: React.ReactNode;
   pendingLabel?: string;

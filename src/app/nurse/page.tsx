@@ -1,7 +1,12 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AdministerDoseForm, VitalsForm, type TreatmentOption, type ItemOption } from "./forms";
-import { Card, Badge, EmptyState } from "@/components/ui";
+import {
+  DispenseHandoff,
+  type PendingDispenseRow,
+  type DispenseHistoryRow,
+} from "./handoff";
+import { Card, Badge, EmptyState, PageHeader } from "@/components/ui";
 import { formatDateTime, treatmentStatusBadge, encounterLabel, oneOrNull } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -11,16 +16,18 @@ export default async function NursePage() {
 
   const supabase = await createClient();
 
-  const [{ data: rawTreatments }, { data: rawItems }, { data: rawAdministrations }] =
+  const [{ data: rawTreatments }, { data: rawItems }, { data: rawAdministrations }, { data: rawPending }, { data: rawHistory }] =
     await Promise.all([
       supabase
         .from("treatments")
         .select("id, encounter_type, category, status, patients(id, patient_code, full_name)")
-        .in("status", ["active", "discharged"])
+        .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(100),
       supabase.rpc("get_dispensable_items"),
       supabase.rpc("get_my_administrations", { limit_count: 30 }),
+      supabase.rpc("get_my_pending_dispensations", { limit_count: 30 }),
+      supabase.rpc("get_my_dispense_history", { limit_count: 30 }),
     ]);
 
   type TreatmentRow = {
@@ -50,26 +57,24 @@ export default async function NursePage() {
     quantity: number;
     dispensed_at: string;
   }[];
+  const pendingDispensations = (rawPending ?? []) as PendingDispenseRow[];
+  const dispenseHistory = (rawHistory ?? []) as DispenseHistoryRow[];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Care &amp; Administration</h1>
-          <p className="text-sm text-slate-500">
-            Log vitals and record administered injections / ward dosages to an active treatment.
-            Drug costs are never shown to you - the stock ledger updates automatically.
-          </p>
-        </div>
-        <Badge className="bg-purple-100 text-purple-700">Nursing Station</Badge>
-      </div>
+      <PageHeader
+        title="Care &amp; Administration"
+        subtitle="Log vitals and record administered injections / ward dosages to an active treatment."
+      >
+        <Badge tone="info">Nursing Station</Badge>
+      </PageHeader>
 
       <Card title="Active Encounters">
         {treatments.length === 0 ? (
           <EmptyState message="No active treatment encounters right now." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="table-modern w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                   <th className="py-2 pr-3 font-medium">Patient</th>
@@ -85,7 +90,7 @@ export default async function NursePage() {
                   return (
                     <tr key={t.id} className="border-b border-slate-100">
                       <td className="py-2 pr-3 font-medium text-slate-900">{patient?.full_name}</td>
-                      <td className="py-2 pr-3 font-mono text-xs text-teal-700">
+                      <td className="py-2 pr-3 font-mono text-xs text-brand-600">
                         {patient?.patient_code}
                       </td>
                       <td className="py-2 pr-3">{encounterLabel(t.encounter_type)}</td>
@@ -120,12 +125,14 @@ export default async function NursePage() {
         </Card>
       </div>
 
+      <DispenseHandoff pending={pendingDispensations} history={dispenseHistory} />
+
       <Card title="My Administration Log">
         {administrations.length === 0 ? (
           <EmptyState message="Nothing administered by you yet." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="table-modern w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                   <th className="py-2 pr-3 font-medium">Patient</th>
@@ -139,7 +146,7 @@ export default async function NursePage() {
                 {administrations.map((a, idx) => (
                   <tr key={idx} className="border-b border-slate-100">
                     <td className="py-2 pr-3">
-                      <span className="font-mono text-xs text-teal-700">{a.patient_code}</span>{" "}
+                      <span className="font-mono text-xs text-brand-600">{a.patient_code}</span>{" "}
                       {a.patient_name}
                     </td>
                     <td className="py-2 pr-3 font-medium text-slate-900">{a.item_name}</td>

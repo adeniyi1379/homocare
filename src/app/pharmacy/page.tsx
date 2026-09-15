@@ -1,13 +1,12 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import {
-  AddItemForm,
-  DispenseToTreatmentForm,
-  AdjustStockForm,
-} from "./forms";
+import { PharmacyActions } from "./pharmacy-actions";
+import { StockMonitor } from "./stock-monitor";
+import { DispenseLog, type DispenseLogRow } from "./dispense-log";
 import type { TreatmentOption } from "@/app/nurse/forms";
-import { Card, Badge, EmptyState } from "@/components/ui";
-import { formatDateTime, formatNaira, stockBadge, oneOrNull } from "@/lib/utils";
+import type { RestockItemOption } from "./forms";
+import { Card, Badge, PageHeader } from "@/components/ui";
+import { oneOrNull } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -36,16 +35,18 @@ export default async function PharmacyPage() {
 
   const supabase = await createClient();
 
-  const [{ data: stock }, { data: treatments }, { data: log }] = await Promise.all([
-    supabase.from("v_stock_status").select("*"),
-    supabase
-      .from("treatments")
-      .select("id, encounter_type, category, status, patients(id, patient_code, full_name)")
-      .in("status", ["active", "discharged"])
-      .order("created_at", { ascending: false })
-      .limit(100),
-    supabase.rpc("get_pharmacy_log", { limit_count: 30 }),
-  ]);
+  const [{ data: stock }, { data: treatments }, { data: log }, { data: rawRecipients }] =
+    await Promise.all([
+      supabase.from("v_stock_status").select("*"),
+      supabase
+        .from("treatments")
+        .select("id, encounter_type, category, status, patients(id, patient_code, full_name)")
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase.rpc("get_pharmacy_log", { limit_count: 300 }),
+      supabase.rpc("get_dispense_recipients"),
+    ]);
 
   const rows = (stock ?? []) as StockRow[];
   const priority = { "OUT OF STOCK": 0, LOW: 1, OK: 2 } as const;
@@ -74,27 +75,26 @@ export default async function PharmacyPage() {
     stock_quantity: i.stock_quantity,
   }));
 
-  const logRows = (log ?? []) as unknown as {
-    patient_code: string;
-    patient_name: string;
-    item_name: string;
-    quantity: number;
-    unit_cost_snapshot: number;
-    dispensed_by_name: string | null;
-    dispensed_at: string;
-  }[];
+  const restockItems: RestockItemOption[] = rows.map((i) => ({
+    id: i.id,
+    item_name: i.item_name,
+    item_type: i.item_type,
+    stock_quantity: i.stock_quantity,
+    unit_cost_price: i.unit_cost_price,
+  }));
+
+  type RecipientRow = { id: string; full_name: string; role: string };
+  const recipients = (rawRecipients ?? []) as RecipientRow[];
+
+  const logRows = (log ?? []) as DispenseLogRow[];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Pharmacy &amp; Stock Control</h1>
-          <p className="text-sm text-slate-500">
-            Dispensing reduces stock instantly; items drop to LOW at their reorder level and are
-            flagged when out of stock.
-          </p>
-        </div>
-        <Badge className="bg-emerald-100 text-emerald-700">
+      <PageHeader
+        title="Pharmacy &amp; Stock Control"
+        subtitle="Dispensing reduces stock instantly; items drop to LOW at their reorder level and are flagged when out of stock."
+      >
+        <Badge tone={lowStockCount > 0 ? "warning" : "info"}>
           {lowStockCount > 0 ? (
             <span className="inline-flex items-center gap-1.5">
               <span className="relative flex h-2 w-2">
@@ -107,111 +107,27 @@ export default async function PharmacyPage() {
             "All stock levels OK"
           )}
         </Badge>
-      </div>
+      </PageHeader>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Add Inventory Item">
-          <AddItemForm />
-        </Card>
-
-        <Card title="Dispense to Encounter">
-          {dispenseOptions.length > 0 && rows.length > 0 ? (
-            <DispenseToTreatmentForm treatments={dispenseOptions} items={dispenseItems} />
-          ) : (
-            <EmptyState message="No active encounters to dispense to right now." />
-          )}
-        </Card>
-      </div>
-
-      <Card title="Stock Monitoring">
-        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Items at or below their reorder level are flagged LOW. Zero-stock items are flagged OUT OF
-          STOCK. Use &ldquo;Adjust Stock&rdquo; to restock on arrival.
-        </div>
-        {rows.length === 0 ? (
-          <EmptyState message="Add inventory items to begin monitoring stock." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-3 font-medium">Item</th>
-                  <th className="py-2 pr-3 font-medium">Type</th>
-                  <th className="py-2 pr-3 font-medium">In stock</th>
-                  <th className="py-2 pr-3 font-medium">Reorder at</th>
-                  <th className="py-2 pr-3 font-medium">Unit cost</th>
-                  <th className="py-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((i) => (
-                  <tr key={i.id} className="border-b border-slate-100">
-                    <td className="py-2 pr-3 font-medium text-slate-900">{i.item_name}</td>
-                    <td className="py-2 pr-3 capitalize text-slate-600">{i.item_type}</td>
-                    <td className="py-2 pr-3 font-semibold">{i.stock_quantity}</td>
-                    <td className="py-2 pr-3 text-slate-600">{i.reorder_level}</td>
-                    <td className="py-2 pr-3 text-slate-600">{formatNaira(i.unit_cost_price)}</td>
-                    <td className="py-2">
-                      <Badge className={stockBadge(i.stock_status)}>
-                        {i.stock_status === "OK" ? "OK" : i.stock_status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <Card title="Quick Actions">
+        <PharmacyActions treatments={dispenseOptions} items={dispenseItems} restockItems={restockItems} recipients={recipients} />
       </Card>
 
-      <Card title="Restock / Adjust Stock">
-        {rows.length > 0 ? (
-          <AdjustStockForm items={dispenseItems} />
-        ) : (
-          <EmptyState message="No items to adjust." />
-        )}
+<Card title="Stock Monitoring">
+        {/* <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Items at or below their reorder level are flagged LOW. Zero-stock items are flagged OUT OF
+          STOCK. Use &ldquo;Restock / Adjust Stock&rdquo; to restock on arrival. Click any item to
+          inspect its dispensing history.
+        </div> */}
+        <StockMonitor items={rows} />
       </Card>
 
       <Card title="Recent Dispensing Log (internal)">
-        {logRows.length === 0 ? (
-          <EmptyState message="No dispensations recorded yet." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-3 font-medium">Patient</th>
-                  <th className="py-2 pr-3 font-medium">Item</th>
-                  <th className="py-2 pr-3 font-medium">Qty</th>
-                  <th className="py-2 pr-3 font-medium">Unit cost</th>
-                  <th className="py-2 pr-3 font-medium">Line total</th>
-                  <th className="py-2 pr-3 font-medium">Dispensed by</th>
-                  <th className="py-2 font-medium">At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logRows.map((d, idx) => (
-                  <tr key={idx} className="border-b border-slate-100">
-                    <td className="py-2 pr-3">
-                      <span className="font-mono text-xs text-teal-700">{d.patient_code}</span>{" "}
-                      {d.patient_name}
-                    </td>
-                    <td className="py-2 pr-3 font-medium text-slate-900">{d.item_name}</td>
-                    <td className="py-2 pr-3">{d.quantity}</td>
-                    <td className="py-2 pr-3 text-slate-600">
-                      {formatNaira(d.unit_cost_snapshot)}
-                    </td>
-                    <td className="py-2 pr-3 font-semibold">
-                      {formatNaira(d.quantity * d.unit_cost_snapshot)}
-                    </td>
-                    <td className="py-2 pr-3 text-slate-600">{d.dispensed_by_name ?? "-"}</td>
-                    <td className="py-2 text-slate-500">{formatDateTime(d.dispensed_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {/* <div className="mb-3 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 text-sm text-brand-800">
+          Search by item name, patient (name or code), or the staff member the item was handed to.
+          Internal purchase costs only - never on receipts or cashier views.
+        </div> */}
+        <DispenseLog rows={logRows} />
       </Card>
     </div>
   );

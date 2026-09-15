@@ -55,7 +55,37 @@ export async function adjustStock(
   return undefined;
 }
 
-export async function dispenseToTreatment(
+export async function changeItemCost(
+  _prevState: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const item_id = String(formData.get("item_id") ?? "");
+  const new_cost = Number(formData.get("unit_cost_price") ?? 0);
+
+  if (!item_id || !Number.isFinite(new_cost) || new_cost < 0) {
+    return { error: "Select an item and provide a valid unit cost." };
+  }
+
+  const { error } = await supabase.rpc("set_item_cost", {
+    item: item_id,
+    new_cost,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/pharmacy", "layout");
+  return undefined;
+}
+
+export type DispenseLine = {
+  handoff: "nurse" | "patient";
+  item_id: string;
+  quantity: number;
+  dispensed_to: string;
+};
+
+export async function dispenseBatch(
   _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
@@ -65,21 +95,81 @@ export async function dispenseToTreatment(
   } = await supabase.auth.getUser();
 
   const treatment_id = String(formData.get("treatment_id") ?? "");
-  const item_id = String(formData.get("item_id") ?? "");
-  const quantity = Number(formData.get("quantity") ?? 0);
+  const linesRaw = String(formData.get("lines") ?? "[]");
 
-  if (!treatment_id || !item_id || quantity <= 0) {
-    return { error: "Treatment, item and a positive quantity are required." };
+  let lines: DispenseLine[];
+  try {
+    lines = JSON.parse(linesRaw);
+  } catch {
+    return { error: "Invalid dispense data." };
   }
 
-  const { error } = await supabase.from("treatment_dispensations").insert({
-    treatment_id,
-    item_id,
-    quantity,
-    dispensed_by: user?.id,
+  if (!treatment_id) {
+    return { error: "Select a treatment (patient encounter)." };
+  }
+  if (!Array.isArray(lines) || lines.length === 0) {
+    return { error: "Add at least one item to dispense." };
+  }
+
+  for (const [i, line] of lines.entries()) {
+    if (!line.item_id || line.quantity <= 0) {
+      return { error: `Line ${i + 1}: item and a positive quantity are required.` };
+    }
+    const handoff = line.handoff === "patient" ? "patient" : "nurse";
+    if (handoff === "nurse" && !line.dispensed_to) {
+      return { error: `Line ${i + 1}: select the nurse the item is handed to.` };
+    }
+  }
+
+  const inserts = lines.map((line) => {
+    const handoff = line.handoff === "patient" ? "patient" : "nurse";
+    return {
+      treatment_id,
+      item_id: line.item_id,
+      quantity: line.quantity,
+      dispensed_by: user?.id,
+      handoff_type: handoff,
+      dispensed_to: handoff === "nurse" ? line.dispensed_to : null,
+    };
   });
+
+  const { error } = await supabase
+    .from("treatment_dispensations")
+    .insert(inserts);
 
   if (error) return { error: error.message };
   revalidatePath("/pharmacy", "layout");
   return undefined;
+}
+
+export type StaffRecipient = {
+  id: string;
+  full_name: string;
+  role: string;
+};
+
+export type ItemUsageRow = {
+  item_name: string;
+  quantity: number;
+  unit_cost_snapshot: number;
+  handoff_type: string | null;
+  patient_code: string;
+  patient_name: string;
+  treatment_id: string;
+  encounter_label: string;
+  dispensed_by_name: string | null;
+  dispensed_at: string;
+  dispensed_to_name: string | null;
+  administered_by_name: string | null;
+  administered_at: string | null;
+};
+
+export async function getItemUsage(
+  itemId: string
+): Promise<{ rows?: ItemUsageRow[]; error?: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_item_usage", { p_item_id: itemId });
+
+  if (error) return { error: error.message };
+  return { rows: (data ?? []) as unknown as ItemUsageRow[] };
 }

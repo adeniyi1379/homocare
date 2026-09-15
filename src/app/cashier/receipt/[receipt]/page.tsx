@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PrintButton } from "@/components/print-button";
+import { ReceiptEditButton } from "./edit-form";
 import { encounterLabel } from "@/lib/utils";
-import { formatNaira } from "@/lib/utils";
-import { formatDateTime } from "@/lib/utils";
+import { formatNaira, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ export default async function ReceiptPage({
 }: {
   params: Promise<{ receipt: string }>;
 }) {
-  await requireRole(["cashier", "admin"]);
+  await requireRole(["receptionist", "cashier", "admin"]);
 
   const { receipt } = await params;
   const supabase = await createClient();
@@ -38,8 +39,18 @@ export default async function ReceiptPage({
 
   return (
     <div className="mx-auto max-w-md space-y-4">
-      <div className="flex justify-end">
-        <PrintButton />
+      <div className="flex items-center justify-between gap-2 no-print">
+        <Link href="/receptionist" className="btn btn-ghost btn-sm">
+          &larr; Back to Intake &amp; Billing
+        </Link>
+        <div className="flex items-center gap-2">
+          <PrintButton />
+          <ReceiptEditButton
+            paymentId={payment.id}
+            amountPaid={Number(payment.amount_paid)}
+            paymentMethod={payment.payment_method}
+          />
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -105,12 +116,14 @@ export default async function ReceiptPage({
           <div className="receipt-divider" />
           <div className="receipt-center">
             <div>THANK YOU. GET WELL SOON.</div>
-            <div className="receipt-tiny">Valid only with stamped &amp; signed seal at the cash desk.</div>
+            <div className="receipt-tiny">
+              Valid only with stamped &amp; signed seal at the cash desk.
+            </div>
           </div>
         </div>
       </div>
 
-      <p className="text-center text-xs text-slate-400">
+      <p className="text-center text-xs text-slate-400 no-print">
         Click Print and use 80mm thermal paper (or 58mm if your printer is set to that width).
       </p>
     </div>

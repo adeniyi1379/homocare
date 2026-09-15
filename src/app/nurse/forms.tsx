@@ -66,12 +66,7 @@ export function AdministerDoseForm({
           defaultValue={1}
         />
       </Field>
-      <SubmitButton
-        pendingLabel="Saving..."
-        className="rounded-lg bg-purple-700 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-800"
-      >
-        Administer Dose
-      </SubmitButton>
+      <SubmitButton pendingLabel="Saving...">Administer Dose</SubmitButton>
     </form>
   );
 }
@@ -122,12 +117,7 @@ export function VitalsForm({ treatments }: { treatments: TreatmentOption[] }) {
           placeholder="Clinical notes"
         />
       </Field>
-      <SubmitButton
-        pendingLabel="Saving..."
-        className="rounded-lg bg-purple-700 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-800"
-      >
-        Save Vitals
-      </SubmitButton>
+      <SubmitButton pendingLabel="Saving...">Save Vitals</SubmitButton>
     </form>
   );
 }
