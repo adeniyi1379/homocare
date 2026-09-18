@@ -67,13 +67,13 @@ export default async function ReceiptPage({
             <span className="font-mono font-semibold">{payment.receipt_number}</span>
           </div>
           <div className="receipt-row">
-            <span>Date / Time</span>
+            <span>Date</span>
             <span>{formatDateTime(payment.created_at)}</span>
           </div>
-          <div className="receipt-row">
+          {/* <div className="receipt-row">
             <span>Payment Method</span>
             <span className="uppercase">{payment.payment_method}</span>
-          </div>
+          </div> */}
 
           <div className="receipt-divider" />
           <div className="receipt-row">
@@ -97,15 +97,15 @@ export default async function ReceiptPage({
 
           <div className="receipt-divider" />
           <div className="receipt-row">
-            <span>Treatment Fee</span>
-            <span>{formatNaira(fee)}</span>
+            <span className="font-bold">GRAND TOTAL</span>
+            <span className="font-bold">{formatNaira(fee)}</span>
           </div>
           <div className="receipt-row">
-            <span>Amount Received</span>
-            <span className="font-bold">{formatNaira(payment.amount_paid)}</span>
+            <span>Amount Paid</span>
+            <span >{formatNaira(payment.amount_paid)}</span>
           </div>
           <div className="receipt-row">
-            <span>Total Paid So Far</span>
+            <span>Total Paid</span>
             <span>{formatNaira(paid)}</span>
           </div>
           <div className="receipt-row">
@@ -115,17 +115,12 @@ export default async function ReceiptPage({
 
           <div className="receipt-divider" />
           <div className="receipt-center">
-            <div>THANK YOU. GET WELL SOON.</div>
-            <div className="receipt-tiny">
-              Valid only with stamped &amp; signed seal at the cash desk.
-            </div>
+            <div>Thank you for chosing our hospital. We wish you good health.</div>
+
           </div>
         </div>
       </div>
 
-      <p className="text-center text-xs text-slate-400 no-print">
-        Click Print and use 80mm thermal paper (or 58mm if your printer is set to that width).
-      </p>
     </div>
   );
 }

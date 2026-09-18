@@ -193,7 +193,7 @@ export default async function ReceptionistPage({
           subtitle="One desk for the whole visit - register patients, open encounters, collect payments and print receipts."
         >
           <Badge tone="info">Front Desk</Badge>
-          <Badge tone="success">Collecting {formatNaira(totalCollectible)}</Badge>
+          {/* <Badge tone="success">Collecting {formatNaira(totalCollectible)}</Badge> */}
         </PageHeader>
       </div>
 
@@ -210,6 +210,59 @@ export default async function ReceptionistPage({
           )}
         </Card>
       </div>
+      <div className="reveal reveal-4">
+        <Card title="Latest Receipts">
+          {receipts.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="table-modern w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                    <th className="py-2 pr-3 font-medium">Receipt</th>
+                    <th className="py-2 pr-3 font-medium">Patient</th>
+                    <th className="py-2 pr-3 font-medium">Amount</th>
+                    <th className="py-2 pr-3 font-medium">Method</th>
+                    <th className="py-2 pr-3 font-medium">Date</th>
+                    <th className="py-2 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {receipts.map((p) => (
+                    <tr key={p.id} className="border-b border-slate-100">
+                      <td className="py-2 pr-3">
+                        <span className="font-mono text-xs font-semibold text-brand-600">
+                          {p.receipt_number}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <div className="font-medium text-slate-900">{p.patient_name ?? "-"}</div>
+                        {p.patient_code && (
+                          <div className="font-mono text-xs text-brand-600">{p.patient_code}</div>
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 font-semibold text-slate-900">
+                        {formatNaira(p.amount_paid)}
+                      </td>
+                      <td className="py-2 pr-3 text-slate-600">{methodLabel(p.payment_method)}</td>
+                      <td className="py-2 pr-3 text-slate-500">{formatDateTime(p.created_at)}</td>
+                      <td className="py-2">
+                        <a
+                          href={`/cashier/receipt/${p.receipt_number}`}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          View
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState message="No receipts yet. Collect a payment to print the first one." />
+          )}
+        </Card>
+      </div>
+
 
       <div className="reveal reveal-3">
         <Card title={`Patients - ${search ? `search: "${search}"` : "recently registered"}`}>
@@ -270,58 +323,7 @@ export default async function ReceptionistPage({
         </Card>
       </div>
 
-      <div className="reveal reveal-4">
-        <Card title="Latest Receipts">
-          {receipts.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="table-modern w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                    <th className="py-2 pr-3 font-medium">Receipt</th>
-                    <th className="py-2 pr-3 font-medium">Patient</th>
-                    <th className="py-2 pr-3 font-medium">Amount</th>
-                    <th className="py-2 pr-3 font-medium">Method</th>
-                    <th className="py-2 pr-3 font-medium">Date</th>
-                    <th className="py-2 font-medium" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {receipts.map((p) => (
-                    <tr key={p.id} className="border-b border-slate-100">
-                      <td className="py-2 pr-3">
-                        <span className="font-mono text-xs font-semibold text-brand-600">
-                          {p.receipt_number}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="font-medium text-slate-900">{p.patient_name ?? "-"}</div>
-                        {p.patient_code && (
-                          <div className="font-mono text-xs text-brand-600">{p.patient_code}</div>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3 font-semibold text-slate-900">
-                        {formatNaira(p.amount_paid)}
-                      </td>
-                      <td className="py-2 pr-3 text-slate-600">{methodLabel(p.payment_method)}</td>
-                      <td className="py-2 pr-3 text-slate-500">{formatDateTime(p.created_at)}</td>
-                      <td className="py-2">
-                        <a
-                          href={`/cashier/receipt/${p.receipt_number}`}
-                          className="btn btn-ghost btn-sm"
-                        >
-                          View
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState message="No receipts yet. Collect a payment to print the first one." />
-          )}
-        </Card>
-      </div>
+
 
       <div className="reveal reveal-5">
         <Card title="Treatment Ledger">

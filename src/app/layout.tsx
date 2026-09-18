@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Homecare Clinic | Hospital Management System",
+  title: "Homocare Clinic | Hospital Management System",
   description:
     "Patient triage, pharmacy inventory, dispensing and cashier billing platform",
 };

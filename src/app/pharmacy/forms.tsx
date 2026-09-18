@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useActionState } from "react";
+import { useEffect, useMemo, useRef, useState, useActionState } from "react";
 import { addItem, adjustStock, changeItemCost, dispenseBatch } from "./actions";
 import type { DispenseLine } from "./actions";
 import { Field, inputClass, selectClass } from "@/components/ui";
@@ -97,13 +97,30 @@ export function DispenseToTreatmentForm({
 }) {
   const [state, action] = useActionState(dispenseBatch, undefined);
   const submitted = useRef(false);
-  const [lines, setLines] = useState<DispenseLine[]>([
-    { handoff: "nurse", item_id: "", quantity: 1, dispensed_to: "" },
-  ]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lines, setLines] = useState<{ item_id: string; quantity: number }[]>([]);
+  const [handoff, setHandoff] = useState<"nurse" | "patient">("nurse");
+  const [dispensedTo, setDispensedTo] = useState("");
+  const [query, setQuery] = useState("");
+  const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
     if (submitted.current && !state?.error) onDone();
   }, [state, onDone]);
+
+  const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const inCart = new Set(lines.map((l) => l.item_id));
+    return items.filter(
+      (i) =>
+        i.stock_quantity > 0 &&
+        !inCart.has(i.id) &&
+        (!q || i.item_name.toLowerCase().includes(q))
+    );
+  }, [query, lines, items]);
 
   const treatmentOptions = treatments.map((t) => ({
     id: t.id,
@@ -112,21 +129,47 @@ export function DispenseToTreatmentForm({
     detail: `${encounterLabel(t.encounter_type)} - ${t.id}`,
   }));
 
-  function updateLine(index: number, patch: Partial<DispenseLine>) {
+  const submitLines: DispenseLine[] = lines.map((l) => ({
+    item_id: l.item_id,
+    quantity: l.quantity,
+    handoff,
+    dispensed_to: handoff === "nurse" ? dispensedTo : "",
+  }));
+
+  function scheduleClose() {
+    blurTimer.current = setTimeout(() => setShowResults(false), 150);
+  }
+
+  function cancelClose() {
+    if (blurTimer.current) clearTimeout(blurTimer.current);
+  }
+
+  function addItemToCart(item: ItemOption) {
+    setLines((prev) => [...prev, { item_id: item.id, quantity: 1 }]);
+    setQuery("");
+    setShowResults(false);
+    inputRef.current?.focus();
+  }
+
+  function removeLine(itemId: string) {
+    setLines((prev) => prev.filter((l) => l.item_id !== itemId));
+  }
+
+  function changeQty(itemId: string, delta: number) {
+    const stock = itemsById.get(itemId)?.stock_quantity ?? 1;
     setLines((prev) =>
-      prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
+      prev.map((l) =>
+        l.item_id === itemId
+          ? { ...l, quantity: Math.min(stock, Math.max(1, l.quantity + delta)) }
+          : l
+      )
     );
   }
 
-  function addLine() {
-    setLines((prev) => [
-      ...prev,
-      { handoff: "nurse", item_id: "", quantity: 1, dispensed_to: "" },
-    ]);
-  }
-
-  function removeLine(index: number) {
-    setLines((prev) => prev.filter((_, i) => i !== index));
+  function setQty(itemId: string, raw: number) {
+    const stock = itemsById.get(itemId)?.stock_quantity ?? 1;
+    const qty = Number.isFinite(raw) ? Math.min(stock, Math.max(1, Math.trunc(raw))) : 1;
+    setLines((prev) => prev.map((l) => (l.item_id === itemId ? { ...l, quantity: qty } : l)));
   }
 
   return (
@@ -146,142 +189,219 @@ export function DispenseToTreatmentForm({
           emptyText="No matching active encounters."
         />
       </Field>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-700">
-            Items to dispense
+    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+            Hand entire dispense to
           </p>
-          <button
-            type="button"
-            onClick={addLine}
-            className="rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
-          >
-            + Add item
-          </button>
-        </div>
-
-        {lines.map((line, index) => (
-          <div
-            key={index}
-            className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-3"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                Item {index + 1}
-              </p>
-              {lines.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeLine(index)}
-                  className="text-xs font-semibold text-rose-600 hover:text-rose-700"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-
-            <Field label="Item">
-              <select
-                name={`line_${index}_item`}
-                required
-                className={selectClass}
-                value={line.item_id}
-                onChange={(e) => updateLine(index, { item_id: e.target.value })}
-              >
-                <option value="" disabled>
-                  Select item...
-                </option>
-                {items.map((i) => (
-                  <option key={i.id} value={i.id} disabled={i.stock_quantity === 0}>
-                    {i.item_name} ({i.stock_quantity} in stock)
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <div>
-              <p className="mb-1 text-xs font-medium text-slate-500">Hand off to</p>
-              <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
-                <button
-                  type="button"
-                  onClick={() => updateLine(index, { handoff: "nurse", dispensed_to: "" })}
-                  className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-                    line.handoff === "nurse"
-                      ? "bg-white text-brand-700 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  To nurse (ward)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateLine(index, { handoff: "patient", dispensed_to: "" })}
-                  className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-                    line.handoff === "patient"
-                      ? "bg-white text-brand-700 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  To patient (take home)
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Quantity">
-                <input
-                  type="number"
-                  min={1}
-                  required
-                  className={inputClass}
-                  value={line.quantity}
-                  onChange={(e) =>
-                    updateLine(index, { quantity: Number(e.target.value) })
-                  }
-                />
-              </Field>
-              {line.handoff === "nurse" ? (
-                <Field label="Hand off to (nurse)">
-                  <select
-                    name={`line_${index}_to`}
-                    required
-                    className={selectClass}
-                    value={line.dispensed_to}
-                    onChange={(e) =>
-                      updateLine(index, { dispensed_to: e.target.value })
-                    }
-                  >
-                    <option value="" disabled>
-                      Select nurse...
-                    </option>
-                    {recipients.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              ) : (
-                <Field label="Recipient">
-                  <p className="rounded-lg bg-violet-50 px-3 py-2 text-sm text-violet-700">
-                    Given to the patient directly — they take it home.
-                  </p>
-                </Field>
-              )}
-            </div>
+          <div className="flex overflow-hidden rounded-lg border border-slate-200 text-sm">
+            <button
+              type="button"
+              onClick={() => setHandoff("nurse")}
+              className={`px-3 py-1.5 font-semibold ${
+                handoff === "nurse"
+                  ? "bg-brand-600 text-white"
+                  : "bg-white text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              To nurse 
+            </button>
+            <button
+              type="button"
+              onClick={() => setHandoff("patient")}
+              className={`px-3 py-1.5 font-semibold ${
+                handoff === "patient"
+                  ? "bg-brand-600 text-white"
+                  : "bg-white text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              To patient
+            </button>
           </div>
-        ))}
+          {handoff === "nurse" && (
+            <select
+              className={`${selectClass} h-9 w-auto min-w-0 flex-1 px-2 py-1`}
+              value={dispensedTo}
+              onChange={(e) => setDispensedTo(e.target.value)}
+            >
+              <option value="" disabled>
+                Select nurse...
+              </option>
+              {recipients.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.full_name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+      <div>
+        <Field label="Search item">
+          <div className="relative">
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => {
+                const value = e.target.value;
+                setQuery(value);
+                if (value.trim().length > 1) {
+                  setShowResults(true);
+                } else {
+                  setShowResults(false);
+                }
+              }}
+              onFocus={cancelClose}
+              onBlur={scheduleClose}
+              placeholder="Type an item name, then tap a result to add it..."
+              className={inputClass}
+              autoComplete="off"
+            />
+            {showResults && query.trim().length > 1 && (
+              <ul
+                className="absolute z-20 mt-1 max-h-44 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                onMouseDown={cancelClose}
+              >
+                {suggestions.length === 0 ? (
+                  <li className="px-3 py-2 text-sm text-slate-400">
+                    {query.trim()
+                      ? "No matching inventory items."
+                      : "Type an item name to search the inventory."}
+                  </li>
+                ) : (
+                  suggestions.map((i) => (
+                    <li key={i.id}>
+                      <button
+                        type="button"
+                        onClick={() => addItemToCart(i)}
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-brand-50"
+                      >
+                        <span className="truncate text-sm text-slate-800">{i.item_name}</span>
+                        <span className="shrink-0 text-xs text-slate-400">
+                          {i.stock_quantity} in stock
+                        </span>
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
+          </div>
+        </Field>
+        {/* <p className="text-xs text-slate-400">
+          Tap a result to add it to the cart below. The search list closes so you can keep adding
+          items or review what is in the cart.
+        </p> */}
       </div>
 
-      <input type="hidden" name="lines" value={JSON.stringify(lines)} />
-      <SubmitButton pendingLabel={`Dispensing ${lines.length} item${lines.length > 1 ? "s" : ""}...`}>
-        Dispense {lines.length} item{lines.length > 1 ? "s" : ""} (reduces stock)
-      </SubmitButton>
-      <p className="text-xs text-slate-400">
-        Each row is tracked with who it was handed to: a nurse (for ward administration)
-        or the patient directly (take home). Stock drops instantly for every row.
-      </p>
+  
+
+      {lines.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-sm text-slate-400">
+          Cart is empty - search and add items above to build this dispense.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-700">
+              Items to dispense ({lines.length})
+            </p>
+            <button
+              type="button"
+              onClick={() => setLines([])}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+            >
+              Clear cart
+            </button>
+          </div>
+
+          {lines.map((line) => {
+            const item = itemsById.get(line.item_id);
+            if (!item) return null;
+            return (
+              <div
+                key={line.item_id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-slate-900">
+                    {item.item_name}
+                  </div>
+                  <div className="text-xs text-slate-400">{item.stock_quantity} in stock</div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => changeQty(line.item_id, -1)}
+                    aria-label={`Decrease quantity of ${item.item_name}`}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50"
+                  >
+                    &minus;
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={item.stock_quantity}
+                    required
+                    value={line.quantity}
+                    onChange={(e) => setQty(line.item_id, Number(e.target.value))}
+                    className="h-7 w-14 rounded-md border border-slate-200 bg-white text-center text-sm font-semibold text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => changeQty(line.item_id, 1)}
+                    aria-label={`Increase quantity of ${item.item_name}`}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50"
+                  >
+                    +
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeLine(line.item_id)}
+                  aria-label={`Remove ${item.item_name} from cart`}
+                  className="shrink-0 text-slate-300 transition-colors hover:text-rose-600"
+                >
+                  &times;
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <input type="hidden" name="lines" value={JSON.stringify(submitLines)} />
+      {lines.length === 0 ? (
+        <div className="text-center">
+          <button
+            type="submit"
+            disabled
+            className="btn btn-primary cursor-not-allowed opacity-60"
+          >
+            Dispense 0 items
+          </button>
+          <p className="mt-1 text-xs text-slate-400">Add at least one item above.</p>
+        </div>
+      ) : handoff === "nurse" && !dispensedTo ? (
+        <div className="text-center">
+          <button
+            type="submit"
+            disabled
+            className="btn btn-primary cursor-not-allowed opacity-60"
+          >
+            Select a nurse to dispense
+          </button>
+          <p className="mt-1 text-xs text-slate-400">
+            Choose the nurse this dispense is handed to above.
+          </p>
+        </div>
+      ) : (
+        <SubmitButton
+          pendingLabel={`Dispensing ${lines.length} item${lines.length > 1 ? "s" : ""}...`}
+        >
+          Dispense {lines.length} item{lines.length > 1 ? "s" : ""} (reduces stock)
+        </SubmitButton>
+      )}
     </form>
   );
 }

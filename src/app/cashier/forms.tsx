@@ -79,7 +79,7 @@ export function CollectPaymentForm({ treatments }: { treatments: LedgerTreatment
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Treatment Fee (\u20A6)">
+        <Field label={`Treatment Fee (${String.fromCharCode(0x20A6)})`}>
           <input
             name="total_treatment_fee"
             type="number"
@@ -90,7 +90,7 @@ export function CollectPaymentForm({ treatments }: { treatments: LedgerTreatment
             defaultValue={fee > 0 ? fee : ""}
           />
         </Field>
-        <Field label="Amount to Collect (\u20A6)">
+          <Field label={`Amount to Collect (${String.fromCharCode(0x20A6)})`}>
           <input
             name="amount_paid"
             type="number"

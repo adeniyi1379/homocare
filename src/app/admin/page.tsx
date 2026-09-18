@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminTabs } from "./admin-tabs";
 import { StaffTab, type StaffRow } from "./staff-tab";
 import { CategoriesTab, type CategoryRow } from "./categories-tab";
+import { TreatmentsTab } from "./treatments-tab";
+import { DonutChart, makeDonutData } from "@/components/donut-chart";
 import { Card, Badge, EmptyState, StatCard, PageHeader } from "@/components/ui";
 import { formatNaira, formatDateTime, stockBadge, treatmentStatusBadge } from "@/lib/utils";
 import { LifecycleActions } from "@/components/lifecycle-actions";
@@ -47,13 +49,18 @@ function isStaffActive(u: { banned_until?: string | null }): boolean {
   return Number.isNaN(until) || until <= Date.now();
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   await requireRole(["admin"]);
+  const { tab } = await searchParams;
 
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  const [{ data: kpiJson }, { data: profit }, { data: audit }, { data: staffUsers }, { data: stock }, { data: categories }] =
+  const [{ data: kpiJson }, { data: profit }, { data: audit }, { data: staffUsers }, { data: stock }, { data: categories }, { data: treatments }] =
     await Promise.all([
       supabase.rpc("get_admin_kpis"),
       supabase.rpc("get_profit_report", { limit_count: 50 }),
@@ -61,6 +68,7 @@ export default async function AdminPage() {
       admin.auth.admin.listUsers(),
       supabase.from("v_stock_status").select("*"),
       supabase.from("treatment_categories").select("*").order("sort_order", { ascending: true }),
+      supabase.from("v_treatment_balance").select("*").order("created_at", { ascending: false }).limit(300),
     ]);
 
   const userRows: StaffRow[] = (staffUsers?.users ?? []).map((u) => ({
@@ -99,6 +107,23 @@ export default async function AdminPage() {
   }[];
 
   const categoryRows = (categories ?? []) as CategoryRow[];
+
+  const treatmentRows = (treatments ?? []) as {
+    treatment_id: string;
+    patient_code: string;
+    patient_name: string;
+    encounter_type: string;
+    category: string | null;
+    status: string;
+    total_treatment_fee: number;
+    total_paid: number;
+    balance_remaining: number;
+    payment_status: string;
+    created_at: string;
+  }[];
+
+  const paymentChartData = makeDonutData(kpi.payments_method_breakdown ?? {});
+  const encounterChartData = makeDonutData(kpi.encounter_breakdown ?? {});
 
   const overview = (
     <div className="space-y-6">
@@ -141,34 +166,26 @@ export default async function AdminPage() {
         </Card>
 
         <Card title="Payment Methods &amp; Encounters">
-          {Object.keys(kpi.payments_method_breakdown ?? {}).length === 0 ? (
-            <EmptyState message="No payments recorded yet." />
+          {paymentChartData.length === 0 && encounterChartData.length === 0 ? (
+            <EmptyState message="No payments or encounters recorded yet." />
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500">
-                  Payment methods
-                </h3>
-                <ul className="space-y-1 text-sm">
-                  {Object.entries(kpi.payments_method_breakdown ?? {}).map(([m, c]) => (
-                    <li key={m} className="flex justify-between">
-                      <span className="capitalize text-slate-600">{m}</span>
-                      <span className="font-semibold">{c}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500">Encounters</h3>
-                <ul className="space-y-1 text-sm">
-                  {Object.entries(kpi.encounter_breakdown ?? {}).map(([e, c]) => (
-                    <li key={e} className="flex justify-between">
-                      <span className="capitalize text-slate-600">{e.replace("_", " ")}</span>
-                      <span className="font-semibold">{c}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <div className="space-y-6">
+              {paymentChartData.length > 0 ? (
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500">
+                    Payment methods
+                  </h3>
+                  <DonutChart data={paymentChartData} centerSubtitle="Payments" />
+                </div>
+              ) : null}
+              {encounterChartData.length > 0 ? (
+                <div>
+                  <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500">
+                    Encounters
+                  </h3>
+                  <DonutChart data={encounterChartData} centerSubtitle="Encounters" />
+                </div>
+              ) : null}
             </div>
           )}
         </Card>
@@ -272,7 +289,13 @@ export default async function AdminPage() {
         <Badge tone="neutral">Admin</Badge>
       </PageHeader>
 
-      <AdminTabs overview={overview} staff={<StaffTab users={userRows} />} categories={<CategoriesTab categories={categoryRows} />} />
+      <AdminTabs
+        initialTab={tab}
+        overview={overview}
+        treatments={<TreatmentsTab treatments={treatmentRows} />}
+        staff={<StaffTab users={userRows} />}
+        categories={<CategoriesTab categories={categoryRows} />}
+      />
     </div>
   );
 }

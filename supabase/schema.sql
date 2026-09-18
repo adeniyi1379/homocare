@@ -586,7 +586,8 @@ create trigger trg_after_payment_update
 -- ============================================================
 
 -- Cashier / Admin led see treatment + running balance.
-create or replace view public.v_treatment_balance
+drop view if exists public.v_treatment_balance;
+create view public.v_treatment_balance
 with (security_invoker = true) as
 select
   tr.id                      as treatment_id,
@@ -597,6 +598,7 @@ select
   tr.encounter_type,
   tr.category,
   tr.status,
+  tr.created_at,
   tr.total_treatment_fee,
   coalesce(pay.total_paid, 0) as total_paid,
   tr.total_treatment_fee - coalesce(pay.total_paid, 0) as balance_remaining,
@@ -1006,6 +1008,119 @@ begin
     from public.v_profit_summary v
    order by v.created_at desc
    limit greatest(limit_count, 1);
+end;
+$$;
+
+-- Admin: full detail for one treatment (patient, dispensed items, payments, staff).
+create or replace function public.get_treatment_detail(t uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  out jsonb;
+begin
+  if public.auth_role() <> 'admin' then
+    raise exception 'Forbidden';
+  end if;
+
+  select jsonb_build_object(
+    'treatment_id', tr.id,
+    'patient_id', tr.patient_id,
+    'patient_code', p.patient_code,
+    'patient_name', p.full_name,
+    'phone', p.phone,
+    'gender', p.gender,
+    'encounter_type', tr.encounter_type::text,
+    'category', tr.category,
+    'status', tr.status::text,
+    'total_treatment_fee', tr.total_treatment_fee,
+    'total_paid', coalesce(pay.total_paid, 0),
+    'balance_remaining', tr.total_treatment_fee - coalesce(pay.total_paid, 0),
+    'payment_status', case
+      when coalesce(pay.total_paid, 0) = 0 then 'UNPAID'
+      when coalesce(pay.total_paid, 0) < tr.total_treatment_fee then 'PARTIAL'
+      else 'PAID IN FULL'
+    end,
+    'created_at', tr.created_at,
+    'opened_by_name', opr.full_name,
+    'items', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'item_id', d.item_id,
+        'item_name', i.item_name,
+        'item_type', i.item_type::text,
+        'quantity', d.quantity,
+        'unit_cost_snapshot', d.unit_cost_snapshot,
+        'handoff_type', d.handoff_type,
+        'dispensed_by_name', pr.full_name,
+        'dispensed_at', d.dispensed_at,
+        'dispensed_to_name', dr.full_name,
+        'administered_by_name', ar.full_name,
+        'administered_at', d.administered_at
+      ) order by d.dispensed_at), '[]'::jsonb)
+      from public.treatment_dispensations d
+      join public.pharmacy_inventory i on i.id = d.item_id
+      left join public.profiles pr on pr.id = d.dispensed_by
+      left join public.profiles dr on dr.id = d.dispensed_to
+      left join public.profiles ar on ar.id = d.administered_by
+      where d.treatment_id = tr.id
+    ),
+    'payments', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'payment_id', pm.id,
+        'receipt_number', pm.receipt_number,
+        'amount_paid', pm.amount_paid,
+        'payment_method', pm.payment_method::text,
+        'cashier_name', cr.full_name,
+        'created_at', pm.created_at
+      ) order by pm.created_at), '[]'::jsonb)
+      from public.payments pm
+      left join public.profiles cr on cr.id = pm.cashier_id
+      where pm.treatment_id = tr.id
+    ),
+    'staff', coalesce((
+      select jsonb_agg(jsonb_build_object('role', role, 'action', action, 'full_name', full_name))
+      from (
+        select 'receptionist' as role, 'opened' as action, opr.full_name as full_name
+        union all
+        select 'pharmacy', 'dispensed', pr.full_name
+          from public.treatment_dispensations d
+          join public.profiles pr on pr.id = d.dispensed_by
+         where d.treatment_id = tr.id
+        union all
+        select 'nurse', 'collected', dr.full_name
+          from public.treatment_dispensations d
+          join public.profiles dr on dr.id = d.dispensed_to
+         where d.treatment_id = tr.id
+        union all
+        select 'nurse', 'administered', ar.full_name
+          from public.treatment_dispensations d
+          join public.profiles ar on ar.id = d.administered_by
+         where d.treatment_id = tr.id
+        union all
+        select 'cashier', 'collected payment', cr.full_name
+          from public.payments pm
+          join public.profiles cr on cr.id = pm.cashier_id
+         where pm.treatment_id = tr.id
+      ) s
+      where s.full_name is not null and s.full_name <> ''
+    ), '[]'::jsonb)
+  ) into out
+  from public.treatments tr
+  join public.patients p on p.id = tr.patient_id
+  left join public.profiles opr on opr.id = tr.created_by
+  left join (
+    select treatment_id, sum(amount_paid) as total_paid
+      from public.payments group by treatment_id
+  ) pay on pay.treatment_id = tr.id
+  where tr.id = t;
+
+  if out is null then
+    raise exception 'Treatment not found';
+  end if;
+
+  return out;
 end;
 $$;
 
@@ -1435,6 +1550,7 @@ grant execute on function public.confirm_dispense_administration(uuid) to authen
 grant execute on function public.get_my_dispense_history(int) to authenticated;
 grant execute on function public.get_admin_kpis() to authenticated;
 grant execute on function public.get_profit_report(int) to authenticated;
+grant execute on function public.get_treatment_detail(uuid) to authenticated;
 grant execute on function public.get_audit_log(int) to authenticated;
 grant execute on function public.get_users_admin() to authenticated;
 grant execute on function public.set_user_role(uuid, text) to authenticated;

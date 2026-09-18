@@ -92,7 +92,7 @@ export default async function PharmacyPage() {
     <div className="space-y-6">
       <PageHeader
         title="Pharmacy &amp; Stock Control"
-        subtitle="Dispensing reduces stock instantly; items drop to LOW at their reorder level and are flagged when out of stock."
+        // subtitle="Dispensing reduces stock instantly; items drop to LOW at their reorder level and are flagged when out of stock."
       >
         <Badge tone={lowStockCount > 0 ? "warning" : "info"}>
           {lowStockCount > 0 ? (

@@ -13,14 +13,14 @@ const TILES = [
     filled: true,
     glyph: "+",
     title: "Add Inventory Item",
-    subtitle: "Add a new drug or consumable with its internal purchase cost.",
+    subtitle: "Add a new drug or consumable with its purchase cost.",
   },
   {
     id: "dispense" as const,
     filled: false,
     glyph: "\u2192",
     title: "Dispense to Encounter",
-    subtitle: "Give medication against an active encounter; stock drops instantly.",
+    subtitle: "Give medication against an active encounter.",
   },
   {
     id: "adjust" as const,
