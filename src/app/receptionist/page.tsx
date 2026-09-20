@@ -47,6 +47,12 @@ type ReceiptRow = {
   encounter_type: string | null;
 };
 
+export type BranchOption = {
+  id: string;
+  name: string;
+  code: string;
+};
+
 type PaymentWithEmbeds = {
   id: string;
   receipt_number: string;
@@ -64,7 +70,8 @@ export default async function ReceptionistPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
-  await requireRole(["receptionist", "cashier", "admin"]);
+  const current = await requireRole(["receptionist", "cashier", "admin"]);
+  const isAdmin = current.profile.role === "admin";
   const { q } = await searchParams;
 
   const supabase = await createClient();
@@ -90,11 +97,12 @@ export default async function ReceptionistPage({
     { data: categories },
     { data: ledger },
     { data: recentPayments },
+    { data: branchRows },
   ] = await Promise.all([
     patientQuery,
     supabase
       .from("patients")
-      .select("id, patient_code, full_name, phone")
+      .select("id, patient_code, full_name, phone, branch_id")
       .order("created_at", { ascending: false })
       .limit(300),
     supabase
@@ -111,6 +119,9 @@ export default async function ReceptionistPage({
       )
       .order("created_at", { ascending: false })
       .limit(20),
+    isAdmin
+      ? supabase.from("branches").select("id, name, code").order("name", { ascending: true })
+      : Promise.resolve({ data: null }),
   ]);
 
   const list = (patients ?? []) as unknown as {
@@ -128,6 +139,7 @@ export default async function ReceptionistPage({
     patient_code: string;
     full_name: string;
     phone: string | null;
+    branch_id: string | null;
   }[];
 
   const categoryList = (categories ?? []) as unknown as { id: string; name: string }[];
@@ -190,16 +202,20 @@ export default async function ReceptionistPage({
       <div className="reveal">
         <PageHeader
           title="Patient Intake &amp; Billing"
-          subtitle="One desk for the whole visit - register patients, open encounters, collect payments and print receipts."
+          // subtitle="One desk for the whole visit - register patients, open encounters, collect payments and print receipts."
         >
           <Badge tone="info">Front Desk</Badge>
-          {/* <Badge tone="success">Collecting {formatNaira(totalCollectible)}</Badge> */}
         </PageHeader>
       </div>
 
       <div className="reveal reveal-2 grid gap-6 lg:grid-cols-3">
         <Card title="Quick Actions" className="lg:col-span-1">
-          <ReceptionistActions patients={pickerList} categories={categoryList} />
+          <ReceptionistActions
+            patients={pickerList}
+            categories={categoryList}
+            branches={isAdmin ? ((branchRows ?? []) as unknown as BranchOption[]) : []}
+            isAdmin={isAdmin}
+          />
         </Card>
 
         <Card title="Collect Payment" className="lg:col-span-2">

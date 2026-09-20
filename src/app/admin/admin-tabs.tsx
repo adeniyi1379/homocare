@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "treatments", label: "Treatments" },
+  { id: "patients", label: "Patients" },
   { id: "staff", label: "Staff & Users" },
   { id: "categories", label: "Intake Categories" },
+  { id: "branches", label: "Branches" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -19,29 +20,23 @@ export function AdminTabs({
   staff,
   categories,
   treatments,
+  patients,
+  branches,
   initialTab = "overview",
 }: {
   overview: React.ReactNode;
   staff: React.ReactNode;
   categories: React.ReactNode;
   treatments: React.ReactNode;
+  patients: React.ReactNode;
+  branches: React.ReactNode;
   initialTab?: string;
 }) {
-  const [tab, setTab] = useState<TabId>(
-    VALID_TABS.has(initialTab) ? (initialTab as TabId) : "overview",
-  );
+  const tab: TabId = VALID_TABS.has(initialTab) ? (initialTab as TabId) : "overview";
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  useEffect(() => {
-    const next = searchParams.get("tab");
-    if (next && VALID_TABS.has(next) && next !== tab) {
-      setTab(next as TabId);
-    }
-  }, [searchParams]);
-
   function selectTab(next: TabId) {
-    setTab(next);
     const sp = new URLSearchParams(searchParams.toString());
     sp.set("tab", next);
     router.replace(`?${sp.toString()}`, { scroll: false });
@@ -68,8 +63,10 @@ export function AdminTabs({
 
       {tab === "overview" && overview}
       {tab === "treatments" && <div>{treatments}</div>}
+      {tab === "patients" && <div>{patients}</div>}
       {tab === "staff" && <div>{staff}</div>}
       {tab === "categories" && <div>{categories}</div>}
+      {tab === "branches" && <div>{branches}</div>}
     </div>
   );
 }

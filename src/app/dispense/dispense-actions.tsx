@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Modal } from "@/components/modal";
 import { AddItemForm, DispenseToTreatmentForm, AdjustStockForm } from "./forms";
 import type { RestockItemOption } from "./forms";
+import type { BranchOption } from "./page";
 import type { TreatmentOption, ItemOption } from "@/app/nurse/forms";
 import type { StaffRecipient } from "./actions";
 
@@ -13,34 +14,44 @@ const TILES = [
     filled: true,
     glyph: "+",
     title: "Add Inventory Item",
-    subtitle: "Add a new drug or consumable with its purchase cost.",
+    subtitle: "Add a drug, injection or charge-only service with its sell price.",
   },
   {
     id: "dispense" as const,
     filled: false,
     glyph: "\u2192",
     title: "Dispense to Encounter",
-    subtitle: "Give medication against an active encounter.",
+    subtitle: "Bill medication / services against an active encounter.",
   },
   {
     id: "adjust" as const,
     filled: false,
     glyph: "\u21BA",
     title: "Restock / Adjust Stock",
-    subtitle: "Record stock received on arrival or correct a miscounted balance.",
+    subtitle: "Record stock received or correct a miscounted balance / price.",
   },
 ];
 
-export function PharmacyActions({
+export function DispenseActions({
   treatments,
   items,
   restockItems,
   recipients,
+  branches,
+  isAdmin,
+  defaultBranchId,
+  showCosts,
+  canChangeCost,
 }: {
   treatments: TreatmentOption[];
   items: ItemOption[];
   restockItems: RestockItemOption[];
   recipients: StaffRecipient[];
+  branches: BranchOption[];
+  isAdmin: boolean;
+  defaultBranchId: string | null;
+  showCosts: boolean;
+  canChangeCost: boolean;
 }) {
   const [active, setActive] = useState<"add" | "dispense" | "adjust" | null>(null);
 
@@ -72,7 +83,12 @@ export function PharmacyActions({
       </div>
 
       <Modal open={active === "add"} title="Add Inventory Item" onClose={() => setActive(null)}>
-        <AddItemForm onDone={() => setActive(null)} />
+        <AddItemForm
+          branches={branches}
+          isAdmin={isAdmin}
+          defaultBranchId={defaultBranchId}
+          onDone={() => setActive(null)}
+        />
       </Modal>
 
       <Modal
@@ -90,18 +106,22 @@ export function PharmacyActions({
         ) : (
           <p className="text-sm text-slate-500">
             {treatments.length === 0
-              ? "No active encounters to dispense to right now. Open one at the reception / intake desk."
-              : "Add an inventory item first via the Add Inventory Item action."}
+              ? "No active encounters to dispense to in this branch right now."
+              : "No inventory items in this branch yet."}
           </p>
         )}
       </Modal>
 
       <Modal open={active === "adjust"} title="Restock / Adjust Stock" onClose={() => setActive(null)}>
         {restockItems.length > 0 ? (
-          <AdjustStockForm items={restockItems} onDone={() => setActive(null)} />
+          <AdjustStockForm
+            items={restockItems}
+            canChangeCost={canChangeCost}
+            onDone={() => setActive(null)}
+          />
         ) : (
           <p className="text-sm text-slate-500">
-            No items to adjust yet. Add inventory items first.
+            No items to adjust in this branch yet. Add inventory items first.
           </p>
         )}
       </Modal>

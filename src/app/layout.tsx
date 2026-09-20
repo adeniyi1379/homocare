@@ -23,13 +23,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Homocare Clinic | Hospital Management System",
   description:
-    "Patient triage, pharmacy inventory, dispensing and cashier billing platform",
+    "Patient triage, inventory, dispensing and cashier billing platform",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${figtree.variable} ${noto.variable} ${geistMono.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >

@@ -8,7 +8,7 @@ import { ROLE_LABELS, type Role } from "@/lib/roles";
 const NAV_LINKS: { href: string; label: string; roles: Role[] }[] = [
   { href: "/receptionist", label: "Intake & Billing", roles: ["receptionist", "cashier"] },
   { href: "/nurse", label: "Nursing Care", roles: ["nurse"] },
-  { href: "/pharmacy", label: "Pharmacy", roles: ["pharmacy"] },
+  { href: "/dispense", label: "Dispense", roles: ["dispenser", "nurse"] },
   { href: "/admin", label: "Dashboard", roles: ["admin"] },
 ];
 
@@ -40,7 +40,7 @@ export function ShellNav({
             </span>
             <span className="leading-tight">
               <span className="block font-display text-lg font-bold tracking-wide text-slate-900">
-                Homecare
+                Homocare
               </span>
               <span className="block text-[10px] font-bold uppercase tracking-[0.22em] text-brand-600">
                 Gracious Hospital
@@ -90,7 +90,7 @@ export function ShellNav({
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
 
       <footer className="border-t border-slate-200 py-3 text-center text-xs text-slate-400">
-        Homecare Gracious Hospital Management System - Osogbo, Osun State
+        Homocare Gracious Hospital Management System - Osogbo, Osun State
       </footer>
     </div>
   );

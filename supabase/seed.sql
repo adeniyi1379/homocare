@@ -4,17 +4,17 @@
 -- low-stock dashboard show immediately.
 -- ============================================================
 
-insert into public.pharmacy_inventory (item_name, item_type, stock_quantity, reorder_level, unit_cost_price)
+insert into public.pharmacy_inventory (item_name, category, stock_quantity, reorder_level, unit_cost_price, sell_price)
 values
-  ('Paracetamol 500mg',  'tablet',     240, 100, 3500),
-  ('Amodiaquine 300mg',  'tablet',      60,  50, 4200),
-  ('Ibuprofen 400mg',    'tablet',     120,  50, 3800),
-  ('ORS Sachet',         'consumable',  18,  25,  950),
-  ('IV Normal Saline 1L','consumable',  12,  20, 1800),
-  ('Diclofenac Injection','injection',   8,  15, 2500),
-  ('Vitamin C Syrup 100ml','syrup',     22,  10, 2800),
-  ('Amoxicillin Cap 250mg','tablet',    35,  60, 4600),
-  ('Metronidazole Infusion','injection', 5,  10, 2100)
+  ('Paracetamol 500mg',  'drugs',        240, 100, 3500, 5000),
+  ('Amodiaquine 300mg',  'drugs',         60,  50, 4200, 6000),
+  ('Ibuprofen 400mg',    'drugs',        120,  50, 3800, 5500),
+  ('ORS Sachet',         'miscellaneous', 18,  25,  950, 1500),
+  ('IV Normal Saline 1L','miscellaneous', 12,  20, 1800, 2800),
+  ('Diclofenac Injection','injection',     8,  15, 2500, 4000),
+  ('Vitamin C Syrup 100ml','drugs',       22,  10, 2800, 4500),
+  ('Amoxicillin Cap 250mg','drugs',       35,  60, 4600, 6500),
+  ('Metronidazole Infusion','injection',   5,  10, 2100, 3500)
 on conflict do nothing;
 
 -- ============================================================

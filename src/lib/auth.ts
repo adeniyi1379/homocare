@@ -13,6 +13,8 @@ export type CurrentUser =
         id: string;
         full_name: string;
         role: Role;
+        branch_id: string | null;
+        branch_name: string | null;
         created_at: string;
       };
     }
@@ -28,7 +30,7 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, role, created_at")
+    .select("id, full_name, role, branch_id, created_at, branches(name)")
     .eq("id", user.id)
     .single();
 
@@ -38,8 +40,13 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     user: { id: user.id, email: user.email ?? "" },
     profile: {
       id: profile.id,
-      full_name: profile.full_name,
+      full_name:
+        profile.full_name?.trim() !== ""
+          ? profile.full_name
+          : ((user.user_metadata?.full_name as string | undefined) ?? ""),
       role: profile.role as Role,
+      branch_id: profile.branch_id,
+      branch_name: (profile.branches as unknown as { name: string } | null)?.name ?? null,
       created_at: profile.created_at,
     },
   };

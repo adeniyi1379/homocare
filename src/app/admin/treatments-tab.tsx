@@ -17,12 +17,26 @@ type TreatmentRow = {
   balance_remaining: number;
   payment_status: string;
   created_at: string;
+  branch_id: string | null;
 };
 
-export function TreatmentsTab({ treatments }: { treatments: TreatmentRow[] }) {
+export type BranchOption = {
+  id: string;
+  name: string;
+  code: string;
+};
+
+export function TreatmentsTab({
+  treatments,
+  branches,
+}: {
+  treatments: TreatmentRow[];
+  branches: BranchOption[];
+}) {
   const [q, setQ] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [branch, setBranch] = useState("");
 
   const rows = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -33,6 +47,7 @@ export function TreatmentsTab({ treatments }: { treatments: TreatmentRow[] }) {
       if (query && !t.patient_name.toLowerCase().includes(query) && !t.patient_code.toLowerCase().includes(query)) {
         return false;
       }
+      if (branch && t.branch_id !== branch) return false;
       if (fromDate || toDate) {
         const d = new Date(t.created_at);
         if (fromDate && d < fromDate) return false;
@@ -40,7 +55,7 @@ export function TreatmentsTab({ treatments }: { treatments: TreatmentRow[] }) {
       }
       return true;
     });
-  }, [treatments, q, from, to]);
+  }, [treatments, q, from, to, branch]);
 
   return (
     <div className="space-y-4">
@@ -52,6 +67,18 @@ export function TreatmentsTab({ treatments }: { treatments: TreatmentRow[] }) {
           onChange={(e) => setQ(e.target.value)}
           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 sm:w-64"
         />
+        <select
+          value={branch}
+          onChange={(e) => setBranch(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+        >
+          <option value="">All branches</option>
+          {branches.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
         <input
           type="date"
           value={from}
@@ -74,6 +101,7 @@ export function TreatmentsTab({ treatments }: { treatments: TreatmentRow[] }) {
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                 <th className="py-2 pr-3 font-medium">Patient</th>
+                <th className="py-2 pr-3 font-medium">Branch</th>
                 <th className="py-2 pr-3 font-medium">Encounter</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
                 <th className="py-2 pr-3 font-medium">Fee</th>
@@ -84,36 +112,46 @@ export function TreatmentsTab({ treatments }: { treatments: TreatmentRow[] }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((t) => (
-                <tr
-                  key={t.treatment_id}
-                  className="border-b border-slate-100 transition-colors hover:bg-slate-50"
-                >
-                  <td className="py-2 pr-3">
-                    <div className="font-medium text-slate-900">{t.patient_name}</div>
-                    <div className="font-mono text-xs text-brand-600">{t.patient_code}</div>
-                  </td>
-                  <td className="py-2 pr-3">
-                    <div className="capitalize text-slate-700">{t.encounter_type.replace(/_/g, " ")}</div>
-                    {t.category && <div className="mt-0.5 text-xs text-slate-400">{t.category}</div>}
-                  </td>
-                  <td className="py-2 pr-3">
-                    <Badge className={treatmentStatusBadge(t.status)}>{t.status}</Badge>
-                  </td>
-                  <td className="py-2 pr-3">{formatNaira(t.total_treatment_fee)}</td>
-                  <td className="py-2 pr-3">{formatNaira(t.total_paid)}</td>
-                  <td className="py-2 pr-3">{formatNaira(t.balance_remaining)}</td>
-                  <td className="whitespace-nowrap py-2 pr-3 text-slate-500">{formatDateTime(t.created_at)}</td>
-                  <td className="py-2">
-                    <Link
-                      href={`/admin/treatments/${t.treatment_id}`}
-                      className="rounded-md bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100"
-                    >
-                      View detail
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((t) => {
+                const branchName = branches.find((b) => b.id === t.branch_id)?.name;
+                return (
+                  <tr
+                    key={t.treatment_id}
+                    className="border-b border-slate-100 transition-colors hover:bg-slate-50"
+                  >
+                    <td className="py-2 pr-3">
+                      <div className="font-medium text-slate-900">{t.patient_name}</div>
+                      <div className="font-mono text-xs text-brand-600">{t.patient_code}</div>
+                    </td>
+                    <td className="py-2 pr-3">
+                      {branchName ? (
+                        <Badge tone="neutral">{branchName}</Badge>
+                      ) : (
+                        <span className="text-slate-400">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <div className="capitalize text-slate-700">{t.encounter_type.replace(/_/g, " ")}</div>
+                      {t.category && <div className="mt-0.5 text-xs text-slate-400">{t.category}</div>}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <Badge className={treatmentStatusBadge(t.status)}>{t.status}</Badge>
+                    </td>
+                    <td className="py-2 pr-3">{formatNaira(t.total_treatment_fee)}</td>
+                    <td className="py-2 pr-3">{formatNaira(t.total_paid)}</td>
+                    <td className="py-2 pr-3">{formatNaira(t.balance_remaining)}</td>
+                    <td className="whitespace-nowrap py-2 pr-3 text-slate-500">{formatDateTime(t.created_at)}</td>
+                    <td className="py-2">
+                      <Link
+                        href={`/admin/treatments/${t.treatment_id}`}
+                        className="rounded-md bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100"
+                      >
+                        View detail
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

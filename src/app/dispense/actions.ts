@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isStockedCategory } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
 export type ActionResult = { error: string } | undefined;
@@ -12,25 +13,31 @@ export async function addItem(
   const supabase = await createClient();
 
   const item_name = String(formData.get("item_name") ?? "").trim();
-  const item_type = String(formData.get("item_type") ?? "");
+  const category = String(formData.get("category") ?? "");
   const stock_quantity = Number(formData.get("stock_quantity") ?? 0);
   const reorder_level = Number(formData.get("reorder_level") ?? 10);
   const unit_cost_price = Number(formData.get("unit_cost_price") ?? 0);
+  const sell_price = Number(formData.get("sell_price") ?? 0);
+  const branch_id = String(formData.get("branch_id") ?? "").trim();
 
-  if (!item_name || unit_cost_price < 0) {
-    return { error: "Item name and valid unit cost are required." };
+  if (!item_name || unit_cost_price < 0 || sell_price < 0) {
+    return { error: "Item name, a valid unit cost and a valid sell price are required." };
   }
+
+  const isStock = isStockedCategory(category);
 
   const { error } = await supabase.from("pharmacy_inventory").insert({
     item_name,
-    item_type,
-    stock_quantity: Math.max(0, Math.floor(stock_quantity)),
+    category,
+    stock_quantity: isStock ? Math.max(0, Math.floor(stock_quantity)) : 0,
     reorder_level: Math.max(0, Math.floor(reorder_level)),
     unit_cost_price,
+    sell_price,
+    branch_id: branch_id || undefined,
   });
 
   if (error) return { error: error.message };
-  revalidatePath("/pharmacy", "layout");
+  revalidatePath("/dispense", "layout");
   return undefined;
 }
 
@@ -51,7 +58,7 @@ export async function adjustStock(
   const { error } = await supabase.rpc("adjust_stock", { item: item_id, delta });
 
   if (error) return { error: error.message };
-  revalidatePath("/pharmacy", "layout");
+  revalidatePath("/dispense", "layout");
   return undefined;
 }
 
@@ -74,7 +81,30 @@ export async function changeItemCost(
   });
 
   if (error) return { error: error.message };
-  revalidatePath("/pharmacy", "layout");
+  revalidatePath("/dispense", "layout");
+  return undefined;
+}
+
+export async function changeItemSellPrice(
+  _prevState: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const item_id = String(formData.get("item_id") ?? "");
+  const new_price = Number(formData.get("sell_price") ?? 0);
+
+  if (!item_id || !Number.isFinite(new_price) || new_price < 0) {
+    return { error: "Select an item and provide a valid sell price." };
+  }
+
+  const { error } = await supabase.rpc("set_item_sell_price", {
+    item: item_id,
+    new_price,
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath("/dispense", "layout");
   return undefined;
 }
 
@@ -138,7 +168,7 @@ export async function dispenseBatch(
     .insert(inserts);
 
   if (error) return { error: error.message };
-  revalidatePath("/pharmacy", "layout");
+  revalidatePath("/dispense", "layout");
   return undefined;
 }
 
@@ -146,30 +176,5 @@ export type StaffRecipient = {
   id: string;
   full_name: string;
   role: string;
+  branch_id: string | null;
 };
-
-export type ItemUsageRow = {
-  item_name: string;
-  quantity: number;
-  unit_cost_snapshot: number;
-  handoff_type: string | null;
-  patient_code: string;
-  patient_name: string;
-  treatment_id: string;
-  encounter_label: string;
-  dispensed_by_name: string | null;
-  dispensed_at: string;
-  dispensed_to_name: string | null;
-  administered_by_name: string | null;
-  administered_at: string | null;
-};
-
-export async function getItemUsage(
-  itemId: string
-): Promise<{ rows?: ItemUsageRow[]; error?: string }> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_item_usage", { p_item_id: itemId });
-
-  if (error) return { error: error.message };
-  return { rows: (data ?? []) as unknown as ItemUsageRow[] };
-}

@@ -7,7 +7,7 @@ import {
   type DispenseHistoryRow,
 } from "./handoff";
 import { Card, Badge, EmptyState, PageHeader } from "@/components/ui";
-import { formatDateTime, treatmentStatusBadge, encounterLabel, oneOrNull } from "@/lib/utils";
+import { formatDateTime, treatmentStatusBadge, encounterLabel, oneOrNull, itemCategoryLabel } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +53,7 @@ export default async function NursePage() {
     patient_code: string;
     patient_name: string;
     item_name: string;
-    item_type: string;
+    category: string;
     quantity: number;
     dispensed_at: string;
   }[];
@@ -137,7 +137,7 @@ export default async function NursePage() {
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                   <th className="py-2 pr-3 font-medium">Patient</th>
                   <th className="py-2 pr-3 font-medium">Item</th>
-                  <th className="py-2 pr-3 font-medium">Type</th>
+                  <th className="py-2 pr-3 font-medium">Category</th>
                   <th className="py-2 pr-3 font-medium">Qty</th>
                   <th className="py-2 font-medium">At</th>
                 </tr>
@@ -150,7 +150,7 @@ export default async function NursePage() {
                       {a.patient_name}
                     </td>
                     <td className="py-2 pr-3 font-medium text-slate-900">{a.item_name}</td>
-                    <td className="py-2 pr-3 text-slate-600">{a.item_type}</td>
+                    <td className="py-2 pr-3 text-slate-600">{itemCategoryLabel(a.category)}</td>
                     <td className="py-2 pr-3">{a.quantity}</td>
                     <td className="py-2 text-slate-500">{formatDateTime(a.dispensed_at)}</td>
                   </tr>

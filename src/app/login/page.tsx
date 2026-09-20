@@ -52,7 +52,7 @@ export default async function LoginPage() {
             built around care.
           </h1>
           <p className="mt-3 text-teal-100">
-            One quiet, fast system for intake, nursing, pharmacy dispensing and billing at
+            One quiet, fast system for intake, nursing, dispensing and billing at
             Homocare Gracious Hospital, Osogbo.
           </p>
 

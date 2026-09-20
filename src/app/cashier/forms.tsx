@@ -83,14 +83,13 @@ export function CollectPaymentForm({ treatments }: { treatments: LedgerTreatment
           <input
             name="total_treatment_fee"
             type="number"
-            step="0.01"
-            min="0"
-            className={inputClass}
-            placeholder={fee > 0 ? String(fee) : "0.00"}
-            defaultValue={fee > 0 ? fee : ""}
+            readOnly
+            tabIndex={-1}
+            className={`${inputClass} bg-slate-100 text-slate-500`}
+            value={fee}
           />
         </Field>
-          <Field label={`Amount to Collect (${String.fromCharCode(0x20A6)})`}>
+        <Field label={`Amount to Collect (${String.fromCharCode(0x20A6)})`}>
           <input
             name="amount_paid"
             type="number"
@@ -103,6 +102,10 @@ export function CollectPaymentForm({ treatments }: { treatments: LedgerTreatment
           />
         </Field>
       </div>
+      <p className="text-xs text-slate-400">
+        The treatment fee is auto-calculated from items dispensed at the Dispense desk - it is not
+        entered here.
+      </p>
 
       <Field label="Payment Method">
         <select name="payment_method" className={selectClass} defaultValue="cash">

@@ -38,13 +38,13 @@ export async function proxy(request: NextRequest) {
   if (!user && !isLoginRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(url, { headers: supabaseResponse.headers });
   }
 
   if (user && isLoginRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(url, { headers: supabaseResponse.headers });
   }
 
   return supabaseResponse;

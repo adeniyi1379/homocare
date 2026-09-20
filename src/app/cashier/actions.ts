@@ -16,7 +16,6 @@ export async function collectPayment(
   } = await supabase.auth.getUser();
 
   const treatment_id = String(formData.get("treatment_id") ?? "");
-  const feeRaw = formData.get("total_treatment_fee");
   const amount_paid = Number(formData.get("amount_paid") ?? 0);
   const payment_method = String(formData.get("payment_method") ?? "cash");
 
@@ -25,20 +24,6 @@ export async function collectPayment(
   }
   if (amount_paid <= 0) {
     return { error: "Amount must be greater than zero." };
-  }
-
-  const feeVal = feeRaw !== null && feeRaw !== "" ? Number(feeRaw) : null;
-  if (feeVal !== null && feeVal < 0) {
-    return { error: "Fee cannot be negative." };
-  }
-
-  if (feeVal !== null && feeVal > 0) {
-    const { error: feeErr } = await supabase
-      .from("treatments")
-      .update({ total_treatment_fee: Math.round(feeVal * 100) / 100 })
-      .eq("id", treatment_id);
-
-    if (feeErr) return { error: `Fee save failed: ${feeErr.message}` };
   }
 
   const { data, error } = await supabase

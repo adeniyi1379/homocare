@@ -8,8 +8,9 @@ export type DispenseLogRow = {
   patient_code: string;
   patient_name: string;
   item_name: string;
+  category: string;
   quantity: number;
-  unit_cost_snapshot: number;
+  unit_cost_snapshot: number | null;
   handoff_type: string | null;
   dispensed_by_name: string | null;
   dispensed_at: string;
@@ -18,7 +19,13 @@ export type DispenseLogRow = {
   administered_at: string | null;
 };
 
-export function DispenseLog({ rows }: { rows: DispenseLogRow[] }) {
+export function DispenseLog({
+  rows,
+  showCosts,
+}: {
+  rows: DispenseLogRow[];
+  showCosts: boolean;
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -66,8 +73,7 @@ export function DispenseLog({ rows }: { rows: DispenseLogRow[] }) {
                 <th className="py-2 pr-3 font-medium">Patient</th>
                 <th className="py-2 pr-3 font-medium">Item</th>
                 <th className="py-2 pr-3 font-medium">Qty</th>
-                <th className="py-2 pr-3 font-medium">Unit cost</th>
-                {/* <th className="py-2 pr-3 font-medium">Line total</th> */}
+                {showCosts && <th className="py-2 pr-3 font-medium">Unit cost</th>}
                 <th className="py-2 pr-3 font-medium">Dispensed by</th>
                 <th className="py-2 pr-3 font-medium">Handed to</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
@@ -83,10 +89,11 @@ export function DispenseLog({ rows }: { rows: DispenseLogRow[] }) {
                   </td>
                   <td className="py-2 pr-3 font-medium text-slate-900">{d.item_name}</td>
                   <td className="py-2 pr-3">{d.quantity}</td>
-                  <td className="py-2 pr-3 text-slate-600">{formatNaira(d.unit_cost_snapshot)}</td>
-                  {/* <td className="py-2 pr-3 font-semibold">
-                    {formatNaira(d.quantity * d.unit_cost_snapshot)}
-                  </td> */}
+                  {showCosts && (
+                    <td className="py-2 pr-3 text-slate-600">
+                      {formatNaira(d.unit_cost_snapshot)}
+                    </td>
+                  )}
                   <td className="py-2 pr-3 text-slate-600">{d.dispensed_by_name ?? "-"}</td>
                   <td className="py-2 pr-3 text-slate-600">
                     {d.handoff_type === "patient" ? (

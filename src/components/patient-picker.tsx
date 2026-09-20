@@ -7,6 +7,7 @@ export type PatientOption = {
   patient_code: string;
   full_name: string;
   phone: string | null;
+  branch_id?: string | null;
 };
 
 export function PatientPicker({ patients }: { patients: PatientOption[] }) {

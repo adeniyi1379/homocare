@@ -84,3 +84,23 @@ export function encounterLabel(type: string): string {
       return type;
   }
 }
+
+const ITEM_CATEGORY_LABELS: Record<string, string> = {
+  laboratory: "Laboratory",
+  drugs: "Drugs",
+  injection: "Injection",
+  scanning: "Scanning",
+  services: "Services",
+  miscellaneous: "Miscellaneous",
+};
+
+const STOCKED_CATEGORIES = new Set(["drugs", "injection"]);
+
+export function itemCategoryLabel(category: string | null | undefined): string {
+  if (!category) return "-";
+  return ITEM_CATEGORY_LABELS[category] ?? category;
+}
+
+export function isStockedCategory(category: string | null | undefined): boolean {
+  return !!category && STOCKED_CATEGORIES.has(category);
+}

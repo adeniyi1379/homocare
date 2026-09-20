@@ -1,20 +1,52 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useActionState } from "react";
-import { addItem, adjustStock, changeItemCost, dispenseBatch } from "./actions";
+import {
+  addItem,
+  adjustStock,
+  changeItemCost,
+  changeItemSellPrice,
+  dispenseBatch,
+} from "./actions";
 import type { DispenseLine } from "./actions";
 import { Field, inputClass, selectClass } from "@/components/ui";
 import { FormError, SubmitButton } from "@/components/form-ui";
 import { SearchPicker } from "@/components/search-picker";
-import { formatNaira, encounterLabel } from "@/lib/utils";
+import {
+  formatNaira,
+  encounterLabel,
+  itemCategoryLabel,
+  isStockedCategory,
+} from "@/lib/utils";
 import type { TreatmentOption, ItemOption } from "@/app/nurse/forms";
 import type { StaffRecipient } from "./actions";
+import type { BranchOption } from "./page";
 
-export type RestockItemOption = ItemOption & { unit_cost_price: number };
+export type RestockItemOption = ItemOption & { unit_cost_price: number | null; sell_price: number };
 
-export function AddItemForm({ onDone }: { onDone: () => void }) {
+const CATEGORIES = [
+  { value: "drugs", label: "Drugs" },
+  { value: "injection", label: "Injection" },
+  { value: "laboratory", label: "Laboratory" },
+  { value: "scanning", label: "Scanning" },
+  { value: "services", label: "Services" },
+  { value: "miscellaneous", label: "Miscellaneous" },
+];
+
+export function AddItemForm({
+  branches,
+  isAdmin,
+  defaultBranchId,
+  onDone,
+}: {
+  branches: BranchOption[];
+  isAdmin: boolean;
+  defaultBranchId: string | null;
+  onDone: () => void;
+}) {
   const [state, action] = useActionState(addItem, undefined);
   const submitted = useRef(false);
+  const [category, setCategory] = useState("drugs");
 
   useEffect(() => {
     if (submitted.current && !state?.error) onDone();
@@ -29,6 +61,18 @@ export function AddItemForm({ onDone }: { onDone: () => void }) {
       className="space-y-3"
     >
       <FormError message={state?.error} />
+      {isAdmin && (
+        <Field label="Branch">
+          <select name="branch_id" className={selectClass} defaultValue={defaultBranchId ?? ""}>
+            <option value="">All branches (global item)</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="Item name">
         <input
           name="item_name"
@@ -38,13 +82,30 @@ export function AddItemForm({ onDone }: { onDone: () => void }) {
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Type">
-          <select name="item_type" className={selectClass} defaultValue="tablet">
-            <option value="tablet">Tablet</option>
-            <option value="syrup">Syrup</option>
-            <option value="injection">Injection</option>
-            <option value="consumable">Consumable</option>
+        <Field label="Category">
+          <select
+            name="category"
+            className={selectClass}
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
           </select>
+        </Field>
+        <Field label="Sell price (patient rate)">
+          <input
+            name="sell_price"
+            type="number"
+            step="0.01"
+            min="0"
+            required
+            className={inputClass}
+            placeholder="0.00"
+          />
         </Field>
         <Field label="Unit cost (internal)">
           <input
@@ -57,31 +118,58 @@ export function AddItemForm({ onDone }: { onDone: () => void }) {
             placeholder="0.00"
           />
         </Field>
-        <Field label="Opening stock">
-          <input
-            name="stock_quantity"
-            type="number"
-            min="0"
-            className={inputClass}
-            defaultValue={0}
-          />
-        </Field>
-        <Field label="Reorder level">
-          <input
-            name="reorder_level"
-            type="number"
-            min="0"
-            className={inputClass}
-            defaultValue={10}
-          />
-        </Field>
+        {isStockedCategory(category) ? (
+          <>
+            <Field label="Opening stock">
+              <input
+                name="stock_quantity"
+                type="number"
+                min="0"
+                className={inputClass}
+                defaultValue={0}
+              />
+            </Field>
+            <Field label="Reorder level">
+              <input
+                name="reorder_level"
+                type="number"
+                min="0"
+                className={inputClass}
+                defaultValue={10}
+              />
+            </Field>
+          </>
+        ) : (
+          <Field label="Reorder level">
+            <input
+              name="reorder_level"
+              type="number"
+              min="0"
+              className={inputClass}
+              defaultValue={10}
+            />
+          </Field>
+        )}
       </div>
+      {!isStockedCategory(category) && (
+        <p className="text-xs text-slate-400">
+          This category is a charge-only service line - it is always available and does not track
+          stock.
+        </p>
+      )}
       <p className="text-xs text-slate-400">
         Purchase cost is internal only - it never appears on patient receipts or cashier views.
       </p>
       <SubmitButton pendingLabel="Adding...">Add Item</SubmitButton>
     </form>
   );
+}
+
+function lineTotal(lines: { item_id: string; quantity: number }[], itemsById: Map<string, ItemOption>) {
+  return lines.reduce((sum, l) => {
+    const item = itemsById.get(l.item_id);
+    return sum + (item ? l.quantity * item.sell_price : 0);
+  }, 0);
 }
 
 export function DispenseToTreatmentForm({
@@ -114,19 +202,18 @@ export function DispenseToTreatmentForm({
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
     const inCart = new Set(lines.map((l) => l.item_id));
-    return items.filter(
-      (i) =>
-        i.stock_quantity > 0 &&
-        !inCart.has(i.id) &&
-        (!q || i.item_name.toLowerCase().includes(q))
-    );
+    return items.filter((i) => {
+      if (inCart.has(i.id)) return false;
+      if (isStockedCategory(i.category) && i.stock_quantity <= 0) return false;
+      return !q || i.item_name.toLowerCase().includes(q);
+    });
   }, [query, lines, items]);
 
   const treatmentOptions = treatments.map((t) => ({
     id: t.id,
     primary: t.patient_code,
     secondary: t.full_name,
-    detail: `${encounterLabel(t.encounter_type)} - ${t.id}`,
+    detail: `${encounterLabel(t.encounter_type)}`,
   }));
 
   const submitLines: DispenseLine[] = lines.map((l) => ({
@@ -135,6 +222,8 @@ export function DispenseToTreatmentForm({
     handoff,
     dispensed_to: handoff === "nurse" ? dispensedTo : "",
   }));
+
+  const cartTotal = lineTotal(lines, itemsById);
 
   function scheduleClose() {
     blurTimer.current = setTimeout(() => setShowResults(false), 150);
@@ -155,20 +244,26 @@ export function DispenseToTreatmentForm({
     setLines((prev) => prev.filter((l) => l.item_id !== itemId));
   }
 
+  function maxQty(item: ItemOption) {
+    return isStockedCategory(item.category) ? Math.max(1, item.stock_quantity) : 9999;
+  }
+
   function changeQty(itemId: string, delta: number) {
-    const stock = itemsById.get(itemId)?.stock_quantity ?? 1;
+    const item = itemsById.get(itemId);
+    const max = item ? maxQty(item) : 1;
     setLines((prev) =>
       prev.map((l) =>
         l.item_id === itemId
-          ? { ...l, quantity: Math.min(stock, Math.max(1, l.quantity + delta)) }
+          ? { ...l, quantity: Math.min(max, Math.max(1, l.quantity + delta)) }
           : l
       )
     );
   }
 
   function setQty(itemId: string, raw: number) {
-    const stock = itemsById.get(itemId)?.stock_quantity ?? 1;
-    const qty = Number.isFinite(raw) ? Math.min(stock, Math.max(1, Math.trunc(raw))) : 1;
+    const item = itemsById.get(itemId);
+    const max = item ? maxQty(item) : 1;
+    const qty = Number.isFinite(raw) ? Math.min(max, Math.max(1, Math.trunc(raw))) : 1;
     setLines((prev) => prev.map((l) => (l.item_id === itemId ? { ...l, quantity: qty } : l)));
   }
 
@@ -189,7 +284,7 @@ export function DispenseToTreatmentForm({
           emptyText="No matching active encounters."
         />
       </Field>
-    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+      <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
             Hand entire dispense to
@@ -204,7 +299,7 @@ export function DispenseToTreatmentForm({
                   : "bg-white text-slate-500 hover:text-slate-700"
               }`}
             >
-              To nurse 
+              To nurse
             </button>
             <button
               type="button"
@@ -276,9 +371,17 @@ export function DispenseToTreatmentForm({
                         onClick={() => addItemToCart(i)}
                         className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-brand-50"
                       >
-                        <span className="truncate text-sm text-slate-800">{i.item_name}</span>
-                        <span className="shrink-0 text-xs text-slate-400">
-                          {i.stock_quantity} in stock
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm text-slate-800">{i.item_name}</span>
+                          <span className="text-xs text-slate-400">
+                            {itemCategoryLabel(i.category)}
+                            {!isStockedCategory(i.category)
+                              ? " (charge-only)"
+                              : ` · ${i.stock_quantity} in stock`}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold text-slate-500">
+                          {formatNaira(i.sell_price)}
                         </span>
                       </button>
                     </li>
@@ -288,13 +391,7 @@ export function DispenseToTreatmentForm({
             )}
           </div>
         </Field>
-        {/* <p className="text-xs text-slate-400">
-          Tap a result to add it to the cart below. The search list closes so you can keep adding
-          items or review what is in the cart.
-        </p> */}
       </div>
-
-  
 
       {lines.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-sm text-slate-400">
@@ -327,7 +424,9 @@ export function DispenseToTreatmentForm({
                   <div className="truncate text-sm font-semibold text-slate-900">
                     {item.item_name}
                   </div>
-                  <div className="text-xs text-slate-400">{item.stock_quantity} in stock</div>
+                  <div className="text-xs text-slate-400">
+                    {itemCategoryLabel(item.category)} · {formatNaira(item.sell_price)} each
+                  </div>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -341,7 +440,7 @@ export function DispenseToTreatmentForm({
                   <input
                     type="number"
                     min={1}
-                    max={item.stock_quantity}
+                    max={maxQty(item)}
                     required
                     value={line.quantity}
                     onChange={(e) => setQty(line.item_id, Number(e.target.value))}
@@ -356,6 +455,9 @@ export function DispenseToTreatmentForm({
                     +
                   </button>
                 </div>
+                <span className="w-24 shrink-0 text-right text-sm font-semibold text-slate-900">
+                  {formatNaira(line.quantity * item.sell_price)}
+                </span>
                 <button
                   type="button"
                   onClick={() => removeLine(line.item_id)}
@@ -367,6 +469,13 @@ export function DispenseToTreatmentForm({
               </div>
             );
           })}
+
+          <div className="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-2.5 text-sm text-white">
+            <span className="font-semibold uppercase tracking-wide text-slate-300">
+              Treatment charges
+            </span>
+            <span className="font-display text-lg font-bold">{formatNaira(cartTotal)}</span>
+          </div>
         </div>
       )}
 
@@ -399,7 +508,7 @@ export function DispenseToTreatmentForm({
         <SubmitButton
           pendingLabel={`Dispensing ${lines.length} item${lines.length > 1 ? "s" : ""}...`}
         >
-          Dispense {lines.length} item{lines.length > 1 ? "s" : ""} (reduces stock)
+          Dispense {lines.length} item{lines.length > 1 ? "s" : ""} ({formatNaira(cartTotal)})
         </SubmitButton>
       )}
     </form>
@@ -408,61 +517,54 @@ export function DispenseToTreatmentForm({
 
 export function AdjustStockForm({
   items,
+  canChangeCost,
   onDone,
 }: {
   items: RestockItemOption[];
+  canChangeCost: boolean;
   onDone: () => void;
 }) {
-  const [mode, setMode] = useState<"quantity" | "cost">("quantity");
+  const [mode, setMode] = useState<"quantity" | "cost" | "price">("quantity");
   const [stockState, stockAction] = useActionState(adjustStock, undefined);
   const [costState, costAction] = useActionState(changeItemCost, undefined);
+  const [priceState, priceAction] = useActionState(changeItemSellPrice, undefined);
   const stockSubmitted = useRef(false);
   const costSubmitted = useRef(false);
+  const priceSubmitted = useRef(false);
 
   useEffect(() => {
     if (
       (stockSubmitted.current && !stockState?.error) ||
-      (costSubmitted.current && !costState?.error)
+      (costSubmitted.current && !costState?.error) ||
+      (priceSubmitted.current && !priceState?.error)
     ) {
       onDone();
     }
-  }, [stockState, costState, onDone]);
+  }, [stockState, costState, priceState, onDone]);
 
-  const options = items.map((i) => ({
-    id: i.id,
-    item_name: i.item_name,
-    stock_quantity: i.stock_quantity,
-    unit_cost_price: i.unit_cost_price,
-  }));
-
-  const current =
-    mode === "cost"
-      ? options.find(
-          (o) => o.id === (document.querySelector<HTMLSelectElement>('[name="cost_item_id"]')?.value ?? "")
-        )
-      : undefined;
+  const modes: { id: "quantity" | "cost" | "price"; label: string }[] = [
+    { id: "quantity", label: "Adjust quantity" },
+    ...(canChangeCost ? [{ id: "cost" as const, label: "Change unit cost" }] : []),
+    { id: "price" as const, label: "Change sell price" },
+  ];
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
-        <button
-          type="button"
-          onClick={() => setMode("quantity")}
-          className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-            mode === "quantity" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          Adjust quantity
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("cost")}
-          className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-            mode === "cost" ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-          }`}
-        >
-          Change unit cost
-        </button>
+      <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
+        {modes.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => setMode(m.id)}
+            className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+              mode === m.id
+                ? "bg-white text-brand-700 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {m.label}
+          </button>
+        ))}
       </div>
 
       {mode === "quantity" ? (
@@ -479,11 +581,13 @@ export function AdjustStockForm({
               <option value="" disabled>
                 Select item...
               </option>
-              {options.map((i) => (
-                <option key={i.id} value={i.id} disabled={i.stock_quantity === 0}>
-                  {i.item_name} ({i.stock_quantity} in stock)
-                </option>
-              ))}
+              {items
+                .filter((i) => isStockedCategory(i.category))
+                .map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.item_name} ({i.stock_quantity} in stock)
+                  </option>
+                ))}
             </select>
           </Field>
           <Field label="Quantity change (+ restock / - usage)">
@@ -497,7 +601,7 @@ export function AdjustStockForm({
           </Field>
           <SubmitButton pendingLabel="Updating...">Update Stock</SubmitButton>
         </form>
-      ) : (
+      ) : mode === "cost" ? (
         <form
           action={(fd) => {
             costSubmitted.current = true;
@@ -511,7 +615,7 @@ export function AdjustStockForm({
               <option value="" disabled>
                 Select item...
               </option>
-              {options.map((i) => (
+              {items.map((i) => (
                 <option key={i.id} value={i.id}>
                   {i.item_name} - current {formatNaira(i.unit_cost_price)}
                 </option>
@@ -533,6 +637,43 @@ export function AdjustStockForm({
             Applies going forward; already-dispensed lines keep their original snapshot cost.
           </p>
           <SubmitButton pendingLabel="Updating...">Update Unit Cost</SubmitButton>
+        </form>
+      ) : (
+        <form
+          action={(fd) => {
+            priceSubmitted.current = true;
+            priceAction(fd);
+          }}
+          className="space-y-3"
+        >
+          <FormError message={priceState?.error} />
+          <Field label="Item">
+            <select name="price_item_id" required className={selectClass} defaultValue="">
+              <option value="" disabled>
+                Select item...
+              </option>
+              {items.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.item_name} - current {formatNaira(i.sell_price)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="New sell price (patient rate)">
+            <input
+              name="sell_price"
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              className={inputClass}
+              placeholder="0.00"
+            />
+          </Field>
+          <p className="text-xs text-slate-400">
+            Applies going forward; already-dispensed lines keep their original snapshot price.
+          </p>
+          <SubmitButton pendingLabel="Updating...">Update Sell Price</SubmitButton>
         </form>
       )}
     </div>

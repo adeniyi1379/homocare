@@ -22,6 +22,13 @@ export type StaffRow = {
   role: string;
   is_active: boolean;
   created_at: string;
+  branch_id: string | null;
+};
+
+export type BranchOption = {
+  id: string;
+  name: string;
+  code: string;
 };
 
 const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[]).map((r) => ({
@@ -29,7 +36,13 @@ const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[]).map((r) => ({
   label: ROLE_LABELS[r],
 }));
 
-export function StaffTab({ users }: { users: StaffRow[] }) {
+export function StaffTab({
+  users,
+  branches,
+}: {
+  users: StaffRow[];
+  branches: BranchOption[];
+}) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<StaffRow | null>(null);
@@ -53,8 +66,8 @@ export function StaffTab({ users }: { users: StaffRow[] }) {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-500">
-          Create staff accounts, assign their role, reactivate or deactivate logins, and reset
-          passwords. Deactivated staff cannot sign in but their records stay intact.
+          Create staff accounts, assign their role and branch, reactivate or deactivate logins, and
+          reset passwords. Deactivated staff cannot sign in but their records stay intact.
         </p>
         <button
           type="button"
@@ -81,68 +94,79 @@ export function StaffTab({ users }: { users: StaffRow[] }) {
                 <th className="py-2 pr-3 font-medium">Name</th>
                 <th className="py-2 pr-3 font-medium">Email</th>
                 <th className="py-2 pr-3 font-medium">Role</th>
+                <th className="py-2 pr-3 font-medium">Branch</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
                 <th className="py-2 pr-3 font-medium">Joined</th>
                 <th className="py-2 font-medium" />
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-3 font-medium text-slate-900">
-                    {u.full_name ?? "Unnamed staff"}
-                  </td>
-                  <td className="py-2 pr-3 text-slate-600">{u.email}</td>
-                  <td className="py-2 pr-3 capitalize text-slate-600">
-                    <Badge tone="info">{u.role}</Badge>
-                  </td>
-                  <td className="py-2 pr-3">
-                    {u.is_active ? (
-                      <Badge tone="success">Active</Badge>
-                    ) : (
-                      <Badge tone="danger">Inactive</Badge>
-                    )}
-                  </td>
-                  <td className="py-2 pr-3 text-slate-500">{formatDateTime(u.created_at)}</td>
-                  <td className="py-2">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(u)}
-                        className="btn btn-ghost btn-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setResetting(u)}
-                        className="btn btn-ghost btn-sm"
-                      >
-                        Reset password
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleToggle(u)}
-                        disabled={busyId === u.id}
-                        className={`btn btn-sm disabled:cursor-not-allowed disabled:opacity-60 ${
-                          u.is_active
-                            ? "border border-red-200 text-red-600 hover:bg-red-50"
-                            : "border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                        }`}
-                      >
-                        {busyId === u.id ? "..." : u.is_active ? "Deactivate" : "Activate"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {users.map((u) => {
+                const branch = branches.find((b) => b.id === u.branch_id);
+                return (
+                  <tr key={u.id} className="border-b border-slate-100">
+                    <td className="py-2 pr-3 font-medium text-slate-900">
+                      {u.full_name ?? "Unnamed staff"}
+                    </td>
+                    <td className="py-2 pr-3 text-slate-600">{u.email}</td>
+                    <td className="py-2 pr-3 capitalize text-slate-600">
+                      <Badge tone="info">{u.role}</Badge>
+                    </td>
+                    <td className="py-2 pr-3 text-slate-600">
+                      {branch ? (
+                        <Badge tone="neutral">{branch.name}</Badge>
+                      ) : (
+                        <span className="text-slate-400">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {u.is_active ? (
+                        <Badge tone="success">Active</Badge>
+                      ) : (
+                        <Badge tone="danger">Inactive</Badge>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-slate-500">{formatDateTime(u.created_at)}</td>
+                    <td className="py-2">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(u)}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setResetting(u)}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          Reset password
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggle(u)}
+                          disabled={busyId === u.id}
+                          className={`btn btn-sm disabled:cursor-not-allowed disabled:opacity-60 ${
+                            u.is_active
+                              ? "border border-red-200 text-red-600 hover:bg-red-50"
+                              : "border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          }`}
+                        >
+                          {busyId === u.id ? "..." : u.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       <Modal open={creating} title="Create Staff Account" onClose={() => setCreating(false)}>
-        <CreateStaffForm onDone={() => setCreating(false)} />
+        <CreateStaffForm branches={branches} onDone={() => setCreating(false)} />
       </Modal>
 
       <Modal
@@ -150,7 +174,9 @@ export function StaffTab({ users }: { users: StaffRow[] }) {
         title={editing ? `Edit ${editing.full_name ?? "staff"}` : "Edit Staff"}
         onClose={() => setEditing(null)}
       >
-        {editing && <EditStaffForm user={editing} onDone={() => setEditing(null)} />}
+        {editing && (
+          <EditStaffForm user={editing} branches={branches} onDone={() => setEditing(null)} />
+        )}
       </Modal>
 
       <Modal
@@ -164,7 +190,36 @@ export function StaffTab({ users }: { users: StaffRow[] }) {
   );
 }
 
-function CreateStaffForm({ onDone }: { onDone: () => void }) {
+function BranchSelect({
+  name,
+  branches,
+  defaultValue = "",
+  withUnassigned = true,
+}: {
+  name: string;
+  branches: BranchOption[];
+  defaultValue?: string;
+  withUnassigned?: boolean;
+}) {
+  return (
+    <select name={name} className={selectClass} defaultValue={defaultValue}>
+      {withUnassigned && <option value="">Unassigned</option>}
+      {branches.map((b) => (
+        <option key={b.id} value={b.id}>
+          {b.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function CreateStaffForm({
+  branches,
+  onDone,
+}: {
+  branches: BranchOption[];
+  onDone: () => void;
+}) {
   const [state, action] = useActionState(createStaff, undefined);
   const submitted = useRef(false);
 
@@ -199,6 +254,9 @@ function CreateStaffForm({ onDone }: { onDone: () => void }) {
           ))}
         </select>
       </Field>
+      <Field label="Branch">
+        <BranchSelect name="branch_id" branches={branches} />
+      </Field>
       <Field label="Temporary password">
         <input
           name="password"
@@ -214,7 +272,15 @@ function CreateStaffForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function EditStaffForm({ user, onDone }: { user: StaffRow; onDone: () => void }) {
+function EditStaffForm({
+  user,
+  branches,
+  onDone,
+}: {
+  user: StaffRow;
+  branches: BranchOption[];
+  onDone: () => void;
+}) {
   const [state, action] = useActionState(updateStaff, undefined);
   const submitted = useRef(false);
 
@@ -248,6 +314,9 @@ function EditStaffForm({ user, onDone }: { user: StaffRow; onDone: () => void })
             </option>
           ))}
         </select>
+      </Field>
+      <Field label="Branch">
+        <BranchSelect name="branch_id" branches={branches} defaultValue={user.branch_id ?? ""} />
       </Field>
       <SubmitButton pendingLabel="Saving...">Save Changes</SubmitButton>
     </form>

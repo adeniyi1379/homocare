@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useActionState } from "react";
+import { useEffect, useState, useRef, useActionState } from "react";
 import {
   registerPatient,
   openEncounter,
@@ -11,8 +11,42 @@ import { FormError, SubmitButton } from "@/components/form-ui";
 import { PatientPicker, type PatientOption } from "@/components/patient-picker";
 
 export type CategoryOption = { id: string; name: string };
+export type BranchOption = { id: string; name: string; code: string };
 
-export function RegisterPatientForm({ onDone }: { onDone: () => void }) {
+function BranchSelect({
+  name,
+  branches,
+  required,
+  defaultValue = "",
+}: {
+  name: string;
+  branches: BranchOption[];
+  required?: boolean;
+  defaultValue?: string;
+}) {
+  return (
+    <select name={name} required={required} className={selectClass} defaultValue={defaultValue}>
+      <option value="" disabled>
+        Select branch...
+      </option>
+      {branches.map((b) => (
+        <option key={b.id} value={b.id}>
+          {b.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export function RegisterPatientForm({
+  branches,
+  isAdmin,
+  onDone,
+}: {
+  branches: BranchOption[];
+  isAdmin: boolean;
+  onDone: () => void;
+}) {
   const [state, action] = useActionState(registerPatient, undefined);
   const submitted = useRef(false);
 
@@ -52,6 +86,11 @@ export function RegisterPatientForm({ onDone }: { onDone: () => void }) {
           </select>
         </Field>
       </div>
+      {isAdmin && (
+        <Field label="Branch">
+          <BranchSelect name="branch_id" branches={branches} required />
+        </Field>
+      )}
       <p className="text-xs text-slate-400">
         Enter the hospital&rsquo;s existing patient ID / file number. Each one must be unique.
       </p>
@@ -63,18 +102,29 @@ export function RegisterPatientForm({ onDone }: { onDone: () => void }) {
 export function OpenEncounterForm({
   patients,
   categories,
+  branches,
+  isAdmin,
   onDone,
 }: {
   patients: PatientOption[];
   categories: CategoryOption[];
+  branches: BranchOption[];
+  isAdmin: boolean;
   onDone: () => void;
 }) {
   const [state, action] = useActionState(openEncounter, undefined);
   const submitted = useRef(false);
+  const [branchId, setBranchId] = useState("");
 
   useEffect(() => {
     if (submitted.current && !state?.error) onDone();
   }, [state, onDone]);
+
+  const visiblePatients = isAdmin
+    ? branchId
+      ? patients.filter((p) => p.branch_id === branchId)
+      : []
+    : patients;
 
   return (
     <form
@@ -85,9 +135,41 @@ export function OpenEncounterForm({
       className="space-y-3"
     >
       <FormError message={state?.error} />
+      {isAdmin && (
+        <Field label="Branch">
+          <select
+            name="branch_id"
+            required
+            className={selectClass}
+            value={branchId}
+            onChange={(e) => setBranchId(e.target.value)}
+          >
+            <option value="" disabled>
+              Select branch...
+            </option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="Patient">
-        <PatientPicker patients={patients} />
+        <PatientPicker
+          key={isAdmin ? (branchId || "none") : "all"}
+          patients={
+            isAdmin
+              ? visiblePatients
+              : patients
+          }
+        />
       </Field>
+      {isAdmin && branchId && visiblePatients.length === 0 && (
+        <p className="text-xs text-amber-600">
+          No patients registered at this branch yet. Register one first.
+        </p>
+      )}
       <Field label="Encounter type">
         <select name="encounter_type" required className={selectClass} defaultValue="one_time">
           <option value="one_time">One-Time Treatment (outpatient / emergency)</option>

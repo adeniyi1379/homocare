@@ -60,12 +60,12 @@ export function DispenseHandoff({
     <>
       <Card title="Items Dispensed to You · Pending Administration">
         <p className="mb-4 text-xs text-slate-500">
-          The pharmacy has handed these items to you for a specific patient treatment. When you
+          The dispense desk has handed these items to you for a specific patient treatment. When you
           have administered them, click the button to close the loop - you are then recorded as
           the administering staff.
         </p>
         {pending.length === 0 ? (
-          <EmptyState message="No pending pharmacy items handed to you right now." />
+          <EmptyState message="No pending dispensed items handed to you right now." />
         ) : (
           <>
             {error && (
@@ -123,7 +123,7 @@ export function DispenseHandoff({
 
       <Card title="My Pharmacy Administration History">
         {history.length === 0 ? (
-          <EmptyState message="You have not administered any pharmacy-dispensed items yet." />
+          <EmptyState message="You have not administered any dispensed items yet." />
         ) : (
           <div className="overflow-x-auto">
             <table className="table-modern w-full text-left text-sm">

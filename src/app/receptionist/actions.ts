@@ -15,13 +15,20 @@ export async function registerPatient(
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: roleData } = await supabase.rpc("auth_role");
+  const isAdmin = roleData === "admin";
+
   const patient_code = String(formData.get("patient_code") ?? "").trim();
   const full_name = String(formData.get("full_name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   const gender = String(formData.get("gender") ?? "");
+  const branch_id = String(formData.get("branch_id") ?? "").trim() || null;
 
   if (!patient_code) return { error: "Patient ID / file number is required." };
   if (!full_name) return { error: "Patient name is required." };
+  if (isAdmin && !branch_id) {
+    return { error: "Select the branch this patient belongs to." };
+  }
 
   const { error } = await supabase.from("patients").insert({
     patient_code,
@@ -29,6 +36,7 @@ export async function registerPatient(
     phone: phone || null,
     gender: gender || null,
     registered_by: user?.id,
+    branch_id: branch_id ?? undefined,
   });
 
   if (error) return { error: error.message };
@@ -45,12 +53,19 @@ export async function openEncounter(
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: roleData } = await supabase.rpc("auth_role");
+  const isAdmin = roleData === "admin";
+
   const patient_id = String(formData.get("patient_id") ?? "");
   const encounter_type = String(formData.get("encounter_type") ?? "");
   const category = String(formData.get("category") ?? "").trim();
+  const branch_id = String(formData.get("branch_id") ?? "").trim() || null;
 
   if (!patient_id || !encounter_type) {
     return { error: "Patient and encounter type are required." };
+  }
+  if (isAdmin && !branch_id) {
+    return { error: "Select the branch this encounter belongs to." };
   }
 
   const { error } = await supabase.from("treatments").insert({
@@ -58,6 +73,7 @@ export async function openEncounter(
     encounter_type,
     category: category || null,
     created_by: user?.id,
+    branch_id: branch_id ?? undefined,
   });
 
   if (error) return { error: error.message };

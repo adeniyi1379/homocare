@@ -2,15 +2,19 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/modal";
-import { RegisterPatientForm, OpenEncounterForm, type CategoryOption } from "./forms";
+import { RegisterPatientForm, OpenEncounterForm, type CategoryOption, type BranchOption } from "./forms";
 import type { PatientOption } from "@/components/patient-picker";
 
 export function ReceptionistActions({
   patients,
   categories,
+  branches,
+  isAdmin,
 }: {
   patients: PatientOption[];
   categories: CategoryOption[];
+  branches: BranchOption[];
+  isAdmin: boolean;
 }) {
   const [active, setActive] = useState<"register" | "open" | null>(null);
 
@@ -71,7 +75,7 @@ export function ReceptionistActions({
       </div>
 
       <Modal open={active === "register"} title="Register Patient" onClose={() => setActive(null)}>
-        <RegisterPatientForm onDone={() => setActive(null)} />
+        <RegisterPatientForm branches={branches} isAdmin={isAdmin} onDone={() => setActive(null)} />
       </Modal>
 
       <Modal open={active === "open"} title="Open Treatment Encounter" onClose={() => setActive(null)}>
@@ -79,6 +83,8 @@ export function ReceptionistActions({
           <OpenEncounterForm
             patients={patients}
             categories={categories}
+            branches={branches}
+            isAdmin={isAdmin}
             onDone={() => setActive(null)}
           />
         ) : (
