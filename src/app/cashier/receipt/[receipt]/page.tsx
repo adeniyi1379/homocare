@@ -134,7 +134,7 @@ export default async function ReceiptPage({
         ))}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+      <div className="print-area rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
         <div
           className="mx-auto bg-white text-black"
           style={RECEIPT_STYLE}

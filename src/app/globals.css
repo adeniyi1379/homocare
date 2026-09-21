@@ -260,18 +260,46 @@ body {
     margin: 0;
   }
 
+  html,
   body {
-    background: #fff;
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
   }
 
   .no-print {
     display: none !important;
   }
 
-  .receipt {
+  header,
+  nav,
+  footer,
+  .app-header {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
     padding: 0;
     margin: 0;
-    width: 80mm;
+    border: none;
+    box-shadow: none;
     /* 58mm printers: use -- Keep 80mm default width, printer handles scaling */
   }
 }
