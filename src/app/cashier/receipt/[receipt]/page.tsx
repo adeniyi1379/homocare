@@ -80,6 +80,7 @@ export default async function ReceiptPage({
 }) {
   const current = await requireRole(["receptionist", "cashier", "dispenser", "nurse", "admin"]);
   const isFinancial = ["receptionist", "cashier", "admin"].includes(current.profile.role);
+  const canEditReceipt = current.profile.role === "admin";
 
   const { receipt } = await params;
   const { doc: docParam } = await searchParams;
@@ -110,7 +111,7 @@ export default async function ReceiptPage({
         </Link>
         <div className="flex items-center gap-2">
           <PrintButton label={`Print ${kind === "blank" ? "Blank Form" : kind === "invoice" ? "Invoice" : "Receipt"}`} />
-          {isFinancial && (
+          {canEditReceipt && (
             <ReceiptEditButton
               paymentId={d.payment_id}
               amountPaid={Number(d.amount_paid ?? 0)}

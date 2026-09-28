@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireRole } from "@/lib/auth";
+import { ROLES, type Role } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 
 export type ActionResult = { error: string } | undefined;
@@ -10,6 +12,8 @@ export async function createStaff(
   _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
+  await requireRole(["admin"]);
+
   const full_name = String(formData.get("full_name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const role = String(formData.get("role") ?? "");
@@ -19,6 +23,8 @@ export async function createStaff(
   if (!full_name || !email || !role || !password) {
     return { error: "Name, email, role and password are required." };
   }
+
+  if (!ROLES.includes(role as Role)) return { error: "Invalid role." };
 
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.createUser({
@@ -37,6 +43,8 @@ export async function updateStaff(
   _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
+  await requireRole(["admin"]);
+
   const supabase = await createClient();
 
   const user_id = String(formData.get("user_id") ?? "");
@@ -70,6 +78,8 @@ export async function resetStaffPassword(
   _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
+  await requireRole(["admin"]);
+
   const user_id = String(formData.get("user_id") ?? "");
   const password = String(formData.get("password") ?? "");
 
@@ -87,6 +97,8 @@ export async function toggleStaffActive(
   userId: string,
   active: boolean
 ): Promise<{ error?: string }> {
+  await requireRole(["admin"]);
+
   const supabase = await createClient();
 
   const { error } = await supabase.rpc("admin_set_user_active", {
@@ -228,6 +240,8 @@ export async function setStaffBranch(
   userId: string,
   branchId: string | null
 ): Promise<{ error?: string }> {
+  await requireRole(["admin"]);
+
   const supabase = await createClient();
 
   const { error } = await supabase.rpc("admin_set_user_branch", {

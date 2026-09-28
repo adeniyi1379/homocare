@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -49,6 +50,8 @@ export async function updatePayment(
   _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
+  await requireRole(["admin"]);
+
   const supabase = await createClient();
 
   const payment_id = String(formData.get("payment_id") ?? "");

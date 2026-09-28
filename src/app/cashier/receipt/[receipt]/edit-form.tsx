@@ -69,10 +69,6 @@ export function ReceiptEditButton({
               </select>
             </Field>
           </div>
-          <p className="text-xs text-slate-400">
-            Corrections are logged in the audit trail. The treatment balance and patient status
-            update automatically.
-          </p>
           <SubmitButton pendingLabel="Saving...">
             Save Changes
           </SubmitButton>
